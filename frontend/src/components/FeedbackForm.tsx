@@ -16,8 +16,6 @@ import {
   Typography, 
   LinearProgress,
   SelectChangeEvent,
-  Paper,
-  Container,
   IconButton,
   ImageList,
   ImageListItem
