@@ -7,7 +7,8 @@ const {
   getItemsByCategory,
   createItem,
   updateItemStatus,
-  deleteItem
+  deleteItem,
+  updateItem
 } = require('../controllers/items.controller');
 
 // Get all items
@@ -24,6 +25,9 @@ router.post('/', isAuthenticated, createItem);
 
 // Update item status (requires authentication)
 router.patch('/:id/status', isAuthenticated, updateItemStatus);
+
+// Update item (requires authentication)
+router.put('/:id', isAuthenticated, updateItem);
 
 // Delete item (requires authentication)
 router.delete('/:id', isAuthenticated, deleteItem);

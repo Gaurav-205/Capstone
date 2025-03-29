@@ -11,8 +11,19 @@ import {
   Grid
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { Logout as LogoutIcon, Person as PersonIcon, Search as SearchIcon } from '@mui/icons-material';
+import { 
+  Logout as LogoutIcon, 
+  Person as PersonIcon, 
+  Search as SearchIcon,
+  Restaurant as RestaurantIcon,
+  Feedback as FeedbackIcon,
+  ReportProblem as ReportProblemIcon,
+  Home as HomeIcon,
+  Map as MapIcon
+} from '@mui/icons-material';
 import authService from '../services/auth.service';
+import { useAuth } from '../contexts/AuthContext';
+import CampusMap from '../components/CampusMap';
 
 interface User {
   name: string;
@@ -21,7 +32,7 @@ interface User {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
 
@@ -38,7 +49,6 @@ const Dashboard: React.FC = () => {
         if (!response.user) {
           throw new Error('User data not found');
         }
-        setUser(response.user);
         setError('');
       } catch (error: any) {
         console.error('Error fetching user data:', error);
@@ -103,80 +113,148 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <Container component="main" maxWidth="md">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center'
-        }}
-      >
-        <Paper
-          elevation={3}
-          sx={{
-            p: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%'
-          }}
-        >
-          <Avatar
-            sx={{
-              m: 1,
-              bgcolor: 'primary.main',
-              width: 80,
-              height: 80
-            }}
-          >
-            <PersonIcon fontSize="large" />
-          </Avatar>
-
-          <Typography component="h1" variant="h4" sx={{ mt: 2 }}>
-            Welcome, {user?.name || 'User'}!
-          </Typography>
-
-          <Box sx={{ mt: 3, width: '100%' }}>
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              Profile Information
-            </Typography>
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body1" gutterBottom>
-                <strong>Name:</strong> {user?.name || 'N/A'}
-              </Typography>
-              <Typography variant="body1" gutterBottom>
-                <strong>Email:</strong> {user?.email || 'N/A'}
-              </Typography>
-            </Box>
-          </Box>
-
-          <Grid container spacing={2} sx={{ mt: 3, width: '100%' }}>
-            <Grid item xs={12}>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<SearchIcon />}
-                onClick={() => navigate('/lost-and-found')}
-                fullWidth
-              >
-                Go to Lost and Found
-              </Button>
-            </Grid>
-            <Grid item xs={12}>
-              <Button
-                variant="contained"
-                color="error"
-                startIcon={<LogoutIcon />}
-                onClick={handleLogout}
-                fullWidth
-              >
-                Logout
-              </Button>
-            </Grid>
-          </Grid>
-        </Paper>
+    <Container maxWidth="lg">
+      <Box sx={{ mt: 4, mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Welcome, {user?.name}!
+        </Typography>
+        <Typography variant="subtitle1" color="text.secondary">
+          Manage your university life efficiently
+        </Typography>
       </Box>
+
+      <Grid container spacing={3}>
+        {/* Interactive Campus Map Section */}
+        <Grid item xs={12}>
+          <CampusMap />
+        </Grid>
+
+        {/* Hostel & Facility Information Section */}
+        <Grid item xs={12} md={6}>
+          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
+            <Typography variant="h5" gutterBottom>
+              Hostel & Facility Information
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              View hostel details, room availability, and campus facilities
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              onClick={() => navigate('/hostel-facility')}
+              startIcon={<HomeIcon />}
+            >
+              View Hostels & Facilities
+            </Button>
+          </Paper>
+        </Grid>
+
+        {/* Mess Management Section */}
+        <Grid item xs={12} md={6}>
+          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
+            <Typography variant="h5" gutterBottom>
+              Mess Management
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Manage your mess preferences and view meal schedules
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              onClick={() => navigate('/mess')}
+              startIcon={<RestaurantIcon />}
+            >
+              Go to Mess Management
+            </Button>
+          </Paper>
+        </Grid>
+
+        {/* Lost and Found Section */}
+        <Grid item xs={12} md={6}>
+          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
+            <Typography variant="h5" gutterBottom>
+              Lost and Found
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Report lost items or search for found items
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              onClick={() => navigate('/lost-and-found')}
+              startIcon={<SearchIcon />}
+            >
+              Go to Lost and Found
+            </Button>
+          </Paper>
+        </Grid>
+
+        {/* Feedback & Tracking Section */}
+        <Grid item xs={12} md={6}>
+          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
+            <Typography variant="h5" gutterBottom>
+              Feedback & Tracking
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Submit feedback, complaints, and track their status
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              onClick={() => navigate('/feedback')}
+              startIcon={<FeedbackIcon />}
+            >
+              Feedback & Tracking
+            </Button>
+          </Paper>
+        </Grid>
+
+        {/* Profile Section */}
+        <Grid item xs={12} md={6}>
+          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
+            <Typography variant="h5" gutterBottom>
+              Profile Settings
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Update your profile information and preferences
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              onClick={() => navigate('/profile')}
+              startIcon={<PersonIcon />}
+            >
+              Manage Profile
+            </Button>
+          </Paper>
+        </Grid>
+
+        {/* Logout Button */}
+        <Grid item xs={12} md={6}>
+          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
+            <Typography variant="h5" gutterBottom>
+              Account
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Manage your account settings and logout
+            </Typography>
+            <Button
+              variant="contained"
+              color="error"
+              fullWidth
+              onClick={() => navigate('/logout')}
+              startIcon={<LogoutIcon />}
+            >
+              Logout
+            </Button>
+          </Paper>
+        </Grid>
+      </Grid>
     </Container>
   );
 };

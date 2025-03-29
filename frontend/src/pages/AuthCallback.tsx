@@ -1,120 +1,159 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Box, Typography, CircularProgress, Alert } from '@mui/material';
-import authService from '../services/auth.service';
+import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Box, Typography, CircularProgress, Button } from '@mui/material';
+import axios from 'axios';
+import { API_URL } from '../config';
 
 const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [error, setError] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [redirectCountdown, setRedirectCountdown] = useState(3);
+  const [countdown, setCountdown] = useState(5);
+  const mountedRef = useRef(true);
+  const timerRef = useRef<NodeJS.Timeout>();
+  const redirectTimerRef = useRef<NodeJS.Timeout>();
+  const hasRedirectedRef = useRef(false);
 
   useEffect(() => {
-    let redirectTimer: NodeJS.Timeout;
-    if (error) {
-      redirectTimer = setInterval(() => {
-        setRedirectCountdown((prev) => {
-          if (prev <= 1) {
-            navigate('/login');
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
     return () => {
-      if (redirectTimer) {
-        clearInterval(redirectTimer);
+      mountedRef.current = false;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
       }
     };
-  }, [error, navigate]);
+  }, []);
 
   useEffect(() => {
-    const handleCallback = async () => {
+    const processAuth = async () => {
       try {
-        setIsLoading(true);
-        setError('');
-
-        const params = new URLSearchParams(location.search);
-        const token = params.get('token');
-        const error = params.get('error');
-        const needsPassword = params.get('needs_password');
-
-        if (error) {
-          const errorMessage = error === 'auth_failed' 
-            ? 'Authentication failed. Please try again.' 
-            : decodeURIComponent(error).replace(/_/g, ' ');
-          throw new Error(errorMessage);
-        }
-
-        if (!token) {
-          throw new Error('No authentication token received. Please try again.');
-        }
-
-        // Handle the authentication callback
-        const userData = await authService.handleGoogleCallback(token);
-
-        // Check if user needs to set password
-        if (needsPassword === 'true' || !userData.user.hasSetPassword) {
-          navigate('/set-password');
+        // Prevent multiple redirects
+        if (hasRedirectedRef.current) {
+          console.log('Already redirected, skipping...');
           return;
         }
 
-        // Navigate to dashboard
-        navigate('/dashboard');
+        // Get the token from the URL
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+        const error = params.get('error');
+        const needsPassword = params.get('needsPassword') === 'true';
+
+        console.log('Auth callback params:', { token, error, needsPassword });
+
+        if (error) {
+          throw new Error(decodeURIComponent(error));
+        }
+
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+
+        // Verify the token with the backend
+        const response = await axios.get(`${API_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        console.log('Auth verification response:', response.data);
+
+        if (!response.data.user) {
+          throw new Error('Failed to verify user');
+        }
+
+        // Store the token and user info
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+
+        // Set the redirect flag
+        hasRedirectedRef.current = true;
+
+        // Clear any existing redirect timer
+        if (redirectTimerRef.current) {
+          clearTimeout(redirectTimerRef.current);
+        }
+
+        // Redirect based on needsPassword flag
+        const redirectPath = needsPassword ? '/set-password' : '/dashboard';
+        console.log('Redirecting to:', redirectPath);
+
+        // Use window.location for more reliable redirection
+        window.location.href = redirectPath;
+
       } catch (err: any) {
-        console.error('Callback error:', err);
-        const errorMessage = err.response?.data?.message || err.message || 'An error occurred during authentication';
-        setError(errorMessage);
-      } finally {
-        setIsLoading(false);
+        console.error('Authentication error:', err);
+        if (mountedRef.current) {
+          setError(err.message || 'Authentication failed. Please try again.');
+          // Start countdown for redirect
+          timerRef.current = setInterval(() => {
+            setCountdown(prev => {
+              if (prev <= 1) {
+                if (timerRef.current) {
+                  clearInterval(timerRef.current);
+                }
+                window.location.href = '/login';
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        }
       }
     };
 
-    handleCallback();
-  }, [location, navigate]);
+    processAuth();
+  }, []); // Remove navigate from dependencies
 
   if (error) {
     return (
       <Box
-        display="flex"
-        flexDirection="column"
-        alignItems="center"
-        justifyContent="center"
-        minHeight="100vh"
-        gap={2}
-        p={3}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          textAlign: 'center',
+          p: 3
+        }}
       >
-        <Alert severity="error" sx={{ maxWidth: 400, width: '100%' }}>
+        <Typography variant="h5" color="error" gutterBottom>
           {error}
-        </Alert>
-        <Typography variant="body1" color="text.secondary">
-          Redirecting to login page in {redirectCountdown} seconds...
         </Typography>
+        <Typography variant="body1" gutterBottom>
+          Redirecting to login page in {countdown} seconds...
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => window.location.href = '/login'}
+          sx={{ mt: 2 }}
+        >
+          Go to Login
+        </Button>
       </Box>
     );
   }
 
   return (
     <Box
-      display="flex"
-      flexDirection="column"
-      alignItems="center"
-      justifyContent="center"
-      minHeight="100vh"
-      gap={2}
-      p={3}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        textAlign: 'center',
+        p: 3
+      }}
     >
-      <CircularProgress />
-      <Typography variant="h6" color="primary">
+      <CircularProgress size={60} />
+      <Typography variant="h6" sx={{ mt: 2 }}>
         Completing authentication...
       </Typography>
-      {isLoading && (
-        <Typography variant="body2" color="text.secondary">
-          Please wait while we set up your account...
-        </Typography>
-      )}
+      <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+        Please wait while we set up your account...
+      </Typography>
     </Box>
   );
 };

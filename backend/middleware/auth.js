@@ -36,4 +36,21 @@ exports.isAuthenticated = async (req, res, next) => {
     console.error('Auth middleware error:', error);
     res.status(500).json({ message: 'Server error' });
   }
+};
+
+exports.isAdmin = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Not authorized - No user found' });
+    }
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized - Admin access required' });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Admin middleware error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 }; 

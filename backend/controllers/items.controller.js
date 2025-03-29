@@ -140,4 +140,45 @@ exports.deleteItem = async (req, res) => {
     console.error('Delete item error:', error);
     res.status(500).json({ message: error.message });
   }
+};
+
+// Update item
+exports.updateItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    // Find the item to check ownership
+    const item = await Item.findById(id);
+    
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    // Check if the user is the owner of the item
+    if (item.postedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to update this item' });
+    }
+
+    // Validate required fields
+    const requiredFields = ['title', 'description', 'location', 'date', 'contactInfo'];
+    for (const field of requiredFields) {
+      if (!updateData[field]?.toString().trim()) {
+        return res.status(400).json({ message: `${field} is required` });
+      }
+    }
+
+    // Update the item
+    const updatedItem = await Item.findByIdAndUpdate(
+      id,
+      { ...updateData },
+      { new: true, runValidators: true }
+    ).populate('postedBy', 'name email')
+     .populate('claimedBy', 'name email');
+
+    res.json(updatedItem);
+  } catch (error) {
+    console.error('Update item error:', error);
+    res.status(400).json({ message: error.message });
+  }
 }; 

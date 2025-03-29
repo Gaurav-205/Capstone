@@ -5,6 +5,10 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const passport = require('passport');
 const session = require('express-session');
+const seedMesses = require('./seed/messData');
+const Mess = require('./models/Mess');
+const path = require('path');
+const fs = require('fs');
 
 // Import passport config
 require('./config/passport');
@@ -20,8 +24,15 @@ for (const envVar of requiredEnvVars) {
 
 const app = express();
 
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
+
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -30,6 +41,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Session configuration
 app.use(session({
@@ -53,7 +67,7 @@ const mongooseOptions = {
   useUnifiedTopology: true,
   retryWrites: true,
   w: 'majority',
-  serverSelectionTimeoutMS: 30000, // Increased timeout for Atlas
+  serverSelectionTimeoutMS: 30000,
   socketTimeoutMS: 45000,
   maxPoolSize: 50,
   wtimeoutMS: 2500,
@@ -94,17 +108,63 @@ mongoose.connection.on('disconnected', () => {
   connectWithRetry();
 });
 
-mongoose.connection.on('connected', () => {
+mongoose.connection.on('connected', async () => {
   console.log('MongoDB connection established');
+  
+  // Seed mess data if none exists
+  const messCount = await Mess.countDocuments();
+  if (messCount === 0) {
+    await seedMesses();
+  }
 });
 
 // Routes
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/items', require('./routes/items.routes'));
+app.use('/api/mess', require('./routes/messRoutes'));
+app.use('/api/feedback', require('./routes/feedbackRoutes'));
+app.use('/api/hostels', require('./routes/hostelRoutes'));
+app.use('/api/facilities', require('./routes/facilityRoutes'));
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
+  
+  // Handle validation errors
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      message: 'Validation Error',
+      errors: Object.values(err.errors).map(e => e.message)
+    });
+  }
+
+  // Handle MongoDB duplicate key errors
+  if (err.code === 11000) {
+    return res.status(400).json({
+      message: 'Duplicate key error',
+      field: Object.keys(err.keyPattern)[0]
+    });
+  }
+
+  // Handle JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      message: 'Invalid token'
+    });
+  }
+
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      message: 'Token expired'
+    });
+  }
+
+  // Default error
   res.status(err.status || 500).json({
     message: err.message || 'Internal server error'
   });

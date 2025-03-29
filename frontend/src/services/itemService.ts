@@ -252,6 +252,42 @@ class ItemService {
       throw new Error(error.response?.data?.message || error.message || 'Failed to fetch user items');
     }
   }
+
+  public async updateItem(id: string, itemData: Partial<CreateItemData>): Promise<Item> {
+    try {
+      if (!authService.isAuthenticated()) {
+        throw new Error('You must be logged in to update an item');
+      }
+
+      if (!id?.trim()) {
+        throw new Error('Item ID is required');
+      }
+
+      // Validate required fields
+      const requiredFields = ['title', 'description', 'location', 'date', 'contactInfo'] as const;
+      for (const field of requiredFields) {
+        if (!itemData[field]?.toString().trim()) {
+          throw new Error(`${field.charAt(0).toUpperCase() + field.slice(1)} is required`);
+        }
+      }
+
+      // Validate and format date if provided
+      if (itemData.date && !this.validateDate(itemData.date)) {
+        throw new Error('Invalid date format');
+      }
+
+      const formattedData = {
+        ...itemData,
+        date: itemData.date ? new Date(itemData.date).toISOString().split('T')[0] : undefined
+      };
+
+      const response = await axios.put(`${API_URL}/items/${id}`, formattedData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update item error:', error.response?.data || error);
+      throw new Error(error.response?.data?.message || error.message || 'Failed to update item');
+    }
+  }
 }
 
 export default ItemService.getInstance(); 

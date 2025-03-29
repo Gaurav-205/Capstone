@@ -10,9 +10,21 @@ import {
   Button,
   Link,
   Divider,
-  Alert
+  Alert,
+  useTheme,
+  alpha,
+  InputAdornment,
+  IconButton,
+  Grid
 } from '@mui/material';
-import { Google as GoogleIcon } from '@mui/icons-material';
+import {
+  Google as GoogleIcon,
+  Visibility,
+  VisibilityOff,
+  Email as EmailIcon,
+  Lock as LockIcon,
+  Person as PersonIcon
+} from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import authService, { SignupData } from '../services/auth.service';
 
@@ -26,8 +38,10 @@ const schema = yup.object().shape({
 });
 
 const Signup: React.FC = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const [error, setError] = useState<string>('');
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
@@ -50,89 +64,229 @@ const Signup: React.FC = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center'
-        }}
-      >
-        <Typography component="h1" variant="h5">
-          Sign up
-        </Typography>
-
-        {error && (
-          <Alert severity="error" sx={{ width: '100%', mt: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 1 }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="name"
-            label="Full Name"
-            autoComplete="name"
-            autoFocus
-            {...register('name')}
-            error={!!errors.name}
-            helperText={errors.name?.message}
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email Address"
-            autoComplete="email"
-            {...register('email')}
-            error={!!errors.email}
-            helperText={errors.email?.message}
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            label="Password"
-            type="password"
-            id="password"
-            autoComplete="new-password"
-            {...register('password')}
-            error={!!errors.password}
-            helperText={errors.password?.message}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+    <Container maxWidth="lg" sx={{ minHeight: '100vh', display: 'flex' }}>
+      <Grid container spacing={0}>
+        {/* Left side - Form */}
+        <Grid item xs={12} md={6}>
+          <Box
+            sx={{
+              minHeight: '100vh',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              p: { xs: 2, sm: 4, md: 6 },
+              background: '#fff'
+            }}
           >
-            Sign Up
-          </Button>
+            <Box sx={{ maxWidth: 480, mx: 'auto', width: '100%' }}>
+              <Typography
+                variant="h4"
+                component="h1"
+                sx={{
+                  mb: 1,
+                  fontWeight: 700,
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}
+              >
+                Get started 🚀
+              </Typography>
+              <Typography
+                variant="body1"
+                sx={{ mb: 4, color: 'text.secondary' }}
+              >
+                Create your account in just a few steps.
+              </Typography>
 
-          <Divider sx={{ my: 2 }}>OR</Divider>
+              {error && (
+                <Alert severity="error" sx={{ mb: 3 }}>
+                  {error}
+                </Alert>
+              )}
 
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<GoogleIcon />}
-            onClick={handleGoogleSignup}
-            sx={{ mb: 2 }}
-          >
-            Sign up with Google
-          </Button>
+              <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+                <TextField
+                  fullWidth
+                  label="Full Name"
+                  {...register('name')}
+                  error={!!errors.name}
+                  helperText={errors.name?.message}
+                  sx={{
+                    mb: 2,
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.common.black, 0.02)
+                    }
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PersonIcon color="action" />
+                      </InputAdornment>
+                    )
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Email"
+                  {...register('email')}
+                  error={!!errors.email}
+                  helperText={errors.email?.message}
+                  sx={{
+                    mb: 2,
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.common.black, 0.02)
+                    }
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <EmailIcon color="action" />
+                      </InputAdornment>
+                    )
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  type={showPassword ? 'text' : 'password'}
+                  label="Password"
+                  {...register('password')}
+                  error={!!errors.password}
+                  helperText={errors.password?.message}
+                  sx={{
+                    mb: 3,
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.common.black, 0.02)
+                    }
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LockIcon color="action" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
+                />
 
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Link component={RouterLink} to="/login" variant="body2">
-              Already have an account? Sign in
-            </Link>
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  sx={{
+                    py: 1.5,
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`,
+                    '&:hover': {
+                      background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`
+                    }
+                  }}
+                >
+                  Create Account
+                </Button>
+
+                <Box sx={{ position: 'relative', my: 3 }}>
+                  <Divider>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        px: 2,
+                        color: 'text.secondary',
+                        bgcolor: 'background.paper'
+                      }}
+                    >
+                      OR
+                    </Typography>
+                  </Divider>
+                </Box>
+
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="large"
+                  startIcon={<GoogleIcon />}
+                  onClick={handleGoogleSignup}
+                  sx={{
+                    py: 1.5,
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    fontWeight: 500,
+                    borderColor: alpha(theme.palette.common.black, 0.12),
+                    color: theme.palette.text.primary,
+                    '&:hover': {
+                      borderColor: alpha(theme.palette.common.black, 0.2),
+                      background: alpha(theme.palette.common.black, 0.02)
+                    }
+                  }}
+                >
+                  Sign up with Google
+                </Button>
+
+                <Box sx={{ mt: 4, textAlign: 'center' }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Already have an account?{' '}
+                    <Link
+                      component={RouterLink}
+                      to="/login"
+                      sx={{
+                        color: theme.palette.primary.main,
+                        textDecoration: 'none',
+                        fontWeight: 600,
+                        '&:hover': { textDecoration: 'underline' }
+                      }}
+                    >
+                      Sign in
+                    </Link>
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
           </Box>
-        </Box>
-      </Box>
+        </Grid>
+
+        {/* Right side - Image */}
+        <Grid
+          item
+          md={6}
+          sx={{
+            display: { xs: 'none', md: 'block' },
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+        >
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+              bgcolor: alpha(theme.palette.primary.main, 0.08),
+              backgroundImage: `url('/images/auth-background.jpg')`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              borderRadius: '24px 0 0 24px'
+            }}
+          />
+        </Grid>
+      </Grid>
     </Container>
   );
 };
