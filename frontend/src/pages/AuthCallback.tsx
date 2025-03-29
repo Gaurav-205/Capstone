@@ -117,16 +117,18 @@ const AuthCallback: React.FC = () => {
         minHeight: '100vh',
         gap: 3,
         bgcolor: 'background.default',
-        p: 3
+        p: 3,
+        opacity: isProcessing ? 1 : 0,
+        transition: 'opacity 0.3s ease-in-out'
       }}
     >
       <CircularProgress size={48} thickness={4} />
       <Box sx={{ textAlign: 'center' }}>
         <Typography variant="h5" gutterBottom>
-          Completing Sign In
+          {isProcessing ? 'Completing Sign In' : 'Redirecting...'}
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Please wait while we set up your account...
+          {isProcessing ? 'Please wait while we set up your account...' : 'Taking you to your dashboard...'}
         </Typography>
       </Box>
     </Box>
