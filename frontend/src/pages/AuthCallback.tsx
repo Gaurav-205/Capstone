@@ -12,43 +12,45 @@ const AuthCallback: React.FC = () => {
   useEffect(() => {
     const processAuth = async () => {
       try {
-        // Log all available information
-        console.log('Processing authentication callback...');
-        console.log('Current URL:', window.location.href);
-        console.log('Location state:', location);
+        // Log the full URL and search params
+        console.log('Full URL:', window.location.href);
         console.log('Search params:', location.search);
         console.log('Hash:', location.hash);
 
-        // Get the token and user info from URL
-        const searchParams = new URLSearchParams(location.search);
+        // Get the token from search params or hash
+        const searchParams = new URLSearchParams(location.search || location.hash.substring(1));
         const token = searchParams.get('token');
-        const email = searchParams.get('email');
-        const name = searchParams.get('name');
+        const needsPassword = searchParams.get('needsPassword') === 'true';
+        const error = searchParams.get('error');
         
-        console.log('Token present:', !!token);
-        console.log('Email:', email);
-        console.log('Name:', name);
+        console.log('Token found:', !!token);
+        console.log('Needs password:', needsPassword);
+        console.log('Error:', error);
+
+        if (error) {
+          throw new Error(`Authentication failed: ${error}`);
+        }
 
         if (!token) {
-          const error = searchParams.get('error');
-          if (error) {
-            throw new Error(`Authentication failed: ${error}`);
-          }
           throw new Error('No authentication token found in URL');
         }
 
-        // Handle the authentication
-        console.log('Calling handleGoogleCallback...');
+        // Handle the authentication with the received token
+        console.log('Handling authentication...');
         await authService.handleGoogleCallback(token);
         
-        console.log('Authentication successful, redirecting to dashboard...');
-        navigate('/dashboard', { replace: true });
+        console.log('Authentication successful');
+        setIsProcessing(false);
+        
+        // Redirect based on whether password setup is needed
+        const redirectPath = needsPassword ? '/set-password' : '/dashboard';
+        console.log('Redirecting to:', redirectPath);
+        navigate(redirectPath, { replace: true });
       } catch (err: any) {
         console.error('Authentication error:', err);
         const errorMessage = err.message || 'Authentication failed. Please try again.';
-        console.error('Setting error message:', errorMessage);
+        console.error('Error message:', errorMessage);
         setError(errorMessage);
-      } finally {
         setIsProcessing(false);
       }
     };
@@ -103,10 +105,6 @@ const AuthCallback: React.FC = () => {
         </Button>
       </Box>
     );
-  }
-
-  if (!isProcessing) {
-    return null; // Don't render anything while redirecting
   }
 
   return (

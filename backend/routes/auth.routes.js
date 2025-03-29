@@ -41,24 +41,22 @@ router.get(
     try {
       console.log('Google auth callback - User:', req.user);
       
-      // Generate JWT token
-      const token = jwt.sign(
-        { 
-          id: req.user._id,
-          email: req.user.email,
-          name: req.user.name
-        }, 
-        process.env.JWT_SECRET, 
-        { expiresIn: '7d' }
-      );
+      if (!req.user) {
+        console.error('No user found in request');
+        return res.redirect('https://ulifee.netlify.app/login?error=no_user_found');
+      }
 
-      // Redirect to frontend with token
-      const redirectURL = new URL('https://ulifee.netlify.app/auth/callback');
+      // Generate JWT token
+      const token = jwt.sign({ id: req.user._id }, process.env.JWT_SECRET, {
+        expiresIn: '7d'
+      });
+
+      // Create redirect URL without double slashes
+      const baseUrl = 'https://ulifee.netlify.app';
+      const redirectPath = '/auth/callback';
+      const redirectURL = new URL(redirectPath, baseUrl);
       redirectURL.searchParams.append('token', token);
-      
-      // Add user info to help with debugging
-      redirectURL.searchParams.append('email', req.user.email);
-      redirectURL.searchParams.append('name', req.user.name);
+      redirectURL.searchParams.append('needsPassword', req.user.needsPassword);
 
       console.log('Redirecting to:', redirectURL.toString());
       res.redirect(redirectURL.toString());
