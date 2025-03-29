@@ -24,7 +24,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/callback`,
+      callbackURL: 'https://ulife-testing1-z1ch.onrender.com/api/auth/google/callback',
       proxy: true
     },
     async (accessToken, refreshToken, profile, done) => {

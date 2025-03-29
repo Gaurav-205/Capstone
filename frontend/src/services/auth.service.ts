@@ -114,7 +114,26 @@ class AuthService {
     }
   }
 
-  private clearAuth() {
+  public initializeAuth() {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    
+    if (token) {
+      this.token = token;
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      if (userStr) {
+        try {
+          this.user = JSON.parse(userStr);
+        } catch (error) {
+          console.error('Failed to parse user data:', error);
+          this.clearAuth();
+        }
+      }
+    }
+  }
+
+  public clearAuth() {
     this.token = null;
     this.user = null;
     localStorage.removeItem('token');
@@ -179,7 +198,7 @@ class AuthService {
   }
 
   public isAuthenticated(): boolean {
-    return !!this.token && !!this.user;
+    return !!this.token;
   }
 
   public getToken(): string | null {
@@ -230,27 +249,35 @@ class AuthService {
 
   public async handleGoogleCallback(token: string) {
     try {
-      // Store the token
-      this.setAuth(token, { id: '', name: '', email: '', hasSetPassword: false });
+      console.log('Starting Google callback handling...');
+      
+      // First, store the token
+      this.token = token;
+      localStorage.setItem('token', token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       // Get the user data
-      const response = await axios.get(`${API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+      console.log('Fetching user data...');
+      const response = await axios.get(`${API_URL}/auth/me`);
+      
       if (!response.data.user) {
         throw new Error('Failed to get user data');
       }
-
+      
       // Update the auth state with the user data
-      this.setAuth(token, response.data.user);
+      this.user = response.data.user;
+      localStorage.setItem('user', JSON.stringify(this.user));
+      
+      console.log('Google callback completed successfully');
       return response.data;
     } catch (error: any) {
       console.error('Google callback error:', error.response?.data || error);
       this.clearAuth();
-      throw error;
+      throw new Error(error.response?.data?.message || 'Failed to complete authentication');
     }
   }
 }
 
-export default AuthService.getInstance(); 
+// Create and export the singleton instance
+const authService = AuthService.getInstance();
+export default authService; 

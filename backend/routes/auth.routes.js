@@ -35,27 +35,36 @@ router.get(
   '/google/callback',
   passport.authenticate('google', { 
     session: false, 
-    failureRedirect: `${process.env.FRONTEND_URL}/login?error=google_auth_failed` 
+    failureRedirect: 'https://ulifee.netlify.app/login?error=google_auth_failed' 
   }),
   (req, res) => {
     try {
       console.log('Google auth callback - User:', req.user);
       
       // Generate JWT token
-      const token = jwt.sign({ id: req.user._id }, process.env.JWT_SECRET, {
-        expiresIn: '7d'
-      });
+      const token = jwt.sign(
+        { 
+          id: req.user._id,
+          email: req.user.email,
+          name: req.user.name
+        }, 
+        process.env.JWT_SECRET, 
+        { expiresIn: '7d' }
+      );
 
-      // Redirect to frontend with token and password setup flag
-      const redirectURL = new URL(`${process.env.FRONTEND_URL}/auth/callback`);
+      // Redirect to frontend with token
+      const redirectURL = new URL('https://ulifee.netlify.app/auth/callback');
       redirectURL.searchParams.append('token', token);
-      redirectURL.searchParams.append('needsPassword', req.user.needsPassword);
+      
+      // Add user info to help with debugging
+      redirectURL.searchParams.append('email', req.user.email);
+      redirectURL.searchParams.append('name', req.user.name);
 
       console.log('Redirecting to:', redirectURL.toString());
       res.redirect(redirectURL.toString());
     } catch (error) {
       console.error('Auth callback error:', error);
-      res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
+      res.redirect('https://ulifee.netlify.app/login?error=auth_failed');
     }
   }
 );

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -22,8 +22,13 @@ import Logout from './pages/Logout';
 import theme from './theme';
 import EditFeedback from './components/EditFeedback';
 import HostelFacilityInfo from './components/HostelFacilityInfo';
+import authService from './services/auth.service';
 
 function App() {
+  useEffect(() => {
+    authService.initializeAuth();
+  }, []);
+
   return (
     <Router>
       <AuthProvider>

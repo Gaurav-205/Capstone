@@ -1,57 +1,60 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Box, Typography, CircularProgress, Alert, Button } from '@mui/material';
 import authService from '../services/auth.service';
 
 const AuthCallback: React.FC = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const redirectTimerRef = useRef<NodeJS.Timeout>();
+  const location = useLocation();
   const [error, setError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
     const processAuth = async () => {
       try {
+        // Log all available information
+        console.log('Processing authentication callback...');
+        console.log('Current URL:', window.location.href);
+        console.log('Location state:', location);
+        console.log('Search params:', location.search);
+        console.log('Hash:', location.hash);
+
+        // Get the token and user info from URL
         const searchParams = new URLSearchParams(location.search);
         const token = searchParams.get('token');
-        const needsPassword = searchParams.get('needsPassword') === 'true';
-        const error = searchParams.get('error');
-
-        if (error) {
-          throw new Error(decodeURIComponent(error));
-        }
+        const email = searchParams.get('email');
+        const name = searchParams.get('name');
+        
+        console.log('Token present:', !!token);
+        console.log('Email:', email);
+        console.log('Name:', name);
 
         if (!token) {
-          throw new Error('No authentication token found');
+          const error = searchParams.get('error');
+          if (error) {
+            throw new Error(`Authentication failed: ${error}`);
+          }
+          throw new Error('No authentication token found in URL');
         }
 
-        // Store the token and get user data
+        // Handle the authentication
+        console.log('Calling handleGoogleCallback...');
         await authService.handleGoogleCallback(token);
         
-        // Set a timer for redirection
-        const timer = setTimeout(() => {
-          if (needsPassword) {
-            navigate('/set-password');
-          } else {
-            navigate('/dashboard');
-          }
-        }, 2000);
-        
-        redirectTimerRef.current = timer;
+        console.log('Authentication successful, redirecting to dashboard...');
+        setIsProcessing(false);
+        navigate('/dashboard', { replace: true });
       } catch (err: any) {
         console.error('Authentication error:', err);
-        setError(err.message || 'Authentication failed. Please try again.');
+        const errorMessage = err.message || 'Authentication failed. Please try again.';
+        console.error('Setting error message:', errorMessage);
+        setError(errorMessage);
+        setIsProcessing(false);
       }
     };
 
     processAuth();
-
-    return () => {
-      if (redirectTimerRef.current) {
-        clearTimeout(redirectTimerRef.current);
-      }
-    };
-  }, [location.search, navigate]);
+  }, [navigate, location]);
 
   if (error) {
     return (
@@ -63,16 +66,38 @@ const AuthCallback: React.FC = () => {
           justifyContent: 'center',
           minHeight: '100vh',
           gap: 2,
-          p: 3
+          p: 3,
+          bgcolor: 'background.default'
         }}
       >
-        <Alert severity="error" sx={{ width: '100%', maxWidth: 400 }}>
-          {error}
+        <Alert 
+          severity="error" 
+          sx={{ 
+            width: '100%', 
+            maxWidth: 400,
+            '& .MuiAlert-message': {
+              width: '100%'
+            }
+          }}
+        >
+          <Typography variant="body1" gutterBottom>
+            {error}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Please try logging in again.
+          </Typography>
         </Alert>
         <Button
           variant="contained"
-          onClick={() => navigate('/login')}
-          sx={{ mt: 2 }}
+          onClick={() => navigate('/login', { replace: true })}
+          sx={{ 
+            mt: 2,
+            px: 4,
+            py: 1,
+            borderRadius: 2,
+            textTransform: 'none',
+            fontSize: '1rem'
+          }}
         >
           Return to Login
         </Button>
@@ -88,14 +113,20 @@ const AuthCallback: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        gap: 2
+        gap: 3,
+        bgcolor: 'background.default',
+        p: 3
       }}
     >
-      <CircularProgress />
-      <Typography>Completing authentication...</Typography>
-      <Typography variant="body2" color="text.secondary">
-        Please wait while we set up your account...
-      </Typography>
+      <CircularProgress size={48} thickness={4} />
+      <Box sx={{ textAlign: 'center' }}>
+        <Typography variant="h5" gutterBottom>
+          Completing Sign In
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Please wait while we set up your account...
+        </Typography>
+      </Box>
     </Box>
   );
 };
