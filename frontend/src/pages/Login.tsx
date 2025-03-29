@@ -56,7 +56,8 @@ const Login: React.FC = () => {
 
   const handleGoogleLogin = () => {
     try {
-      const googleAuthUrl = `${process.env.REACT_APP_API_URL}/auth/google`;
+      const backendUrl = process.env.REACT_APP_API_URL?.replace('/api', '');
+      const googleAuthUrl = `${backendUrl}/api/auth/google`;
       window.location.href = googleAuthUrl;
     } catch (error) {
       setError('Failed to initiate Google login');

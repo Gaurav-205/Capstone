@@ -60,7 +60,13 @@ const Signup: React.FC = () => {
   };
 
   const handleGoogleSignup = () => {
-    window.location.href = 'http://localhost:5000/api/auth/google';
+    try {
+      const backendUrl = process.env.REACT_APP_API_URL?.replace('/api', '');
+      const googleAuthUrl = `${backendUrl}/api/auth/google`;
+      window.location.href = googleAuthUrl;
+    } catch (error) {
+      setError('Failed to initiate Google signup');
+    }
   };
 
   return (
