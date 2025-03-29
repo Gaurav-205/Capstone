@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: ulife-frontend
+    env: node
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    rootDir: frontend
+    envVars:
+      - key: REACT_APP_API_URL
+        sync: false
+      - key: REACT_APP_MAPBOX_TOKEN
+        sync: false 
