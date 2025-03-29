@@ -1,25 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box,
   Typography,
-  Grid,
+  Box,
   Card,
   CardContent,
-  CardMedia,
+  Grid,
   Chip,
-  IconButton,
+  Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   Tabs,
   Tab,
   List,
   ListItem,
   ListItemText,
   ListItemIcon,
-  Divider
+  CardMedia
 } from '@mui/material';
 import {
   LocationOn,

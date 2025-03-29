@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Container,
   Grid,
-  Paper,
   Typography,
   Button,
   Tabs,
@@ -13,7 +12,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  IconButton,
   Card,
   CardContent,
   CardActions,
@@ -21,11 +19,11 @@ import {
   Alert,
   Snackbar,
   CircularProgress,
-  Tooltip,
   useTheme,
   alpha,
   Autocomplete,
-  InputAdornment
+  InputAdornment,
+  Paper
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -35,32 +33,6 @@ import {
 } from '@mui/icons-material';
 import itemService, { Item, CreateItemData } from '../services/itemService';
 import { useAuth } from '../contexts/AuthContext';
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
 
 const initialItemState: CreateItemData = {
   title: '',
@@ -77,7 +49,7 @@ type StatusColorType = 'success' | 'warning' | 'error' | 'primary' | 'default';
 
 export default function LostAndFound() {
   const theme = useTheme();
-  const [tabValue, setTabValue] = useState(0);
+  const [currentTab, setCurrentTab] = useState(0);
   const [items, setItems] = useState<Item[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,11 +79,7 @@ export default function LostAndFound() {
 
   useEffect(() => {
     loadItems();
-  }, [loadItems]);
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
+  }, [loadItems, user]);
 
   const handleOpenDialog = (item?: Item) => {
     if (!user) {
@@ -134,7 +102,7 @@ export default function LostAndFound() {
       setEditingItem(null);
       setNewItem({
         ...initialItemState,
-        category: tabValue === 0 ? 'lost' : 'found',
+        category: currentTab === 0 ? 'lost' : 'found',
         contactInfo: user.email || ''
       });
     }
@@ -189,7 +157,7 @@ export default function LostAndFound() {
         // Create new item
         const submitData: CreateItemData = {
           ...newItem,
-          category: tabValue === 0 ? 'lost' : 'found' as 'lost' | 'found'
+          category: currentTab === 0 ? 'lost' : 'found' as 'lost' | 'found'
         };
         await itemService.createItem(submitData);
         setSuccess('Item posted successfully!');
@@ -298,25 +266,6 @@ export default function LostAndFound() {
     return `${hours} hours remaining`;
   };
 
-  const getStatusStyles = (statusColor: StatusColorType) => {
-    const colors: Record<StatusColorType, string> = {
-      'success': theme.palette.success.main,
-      'warning': theme.palette.warning.main,
-      'error': theme.palette.error.main,
-      'primary': theme.palette.primary.main,
-      'default': theme.palette.grey[500]
-    };
-
-    return {
-      backgroundColor: alpha(colors[statusColor], 0.1),
-      color: colors[statusColor],
-      borderColor: alpha(colors[statusColor], 0.3),
-      '&:hover': {
-        backgroundColor: alpha(colors[statusColor], 0.2),
-      }
-    };
-  };
-
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       // Handle expired items
@@ -325,7 +274,7 @@ export default function LostAndFound() {
         return false;
       }
 
-      const matchesCategory = tabValue === 0 ? item.category === 'lost' : item.category === 'found';
+      const matchesCategory = currentTab === 0 ? item.category === 'lost' : item.category === 'found';
       const matchesSearch = searchQuery
         ? item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -333,7 +282,7 @@ export default function LostAndFound() {
         : true;
       return matchesCategory && matchesSearch;
     });
-  }, [items, tabValue, searchQuery, showExpiredItems]);
+  }, [items, currentTab, searchQuery, showExpiredItems]);
 
   const searchSuggestions = useMemo(() => {
     const titles = new Set(items.map(item => item.title));
@@ -589,8 +538,8 @@ export default function LostAndFound() {
         }}
       >
         <Tabs
-          value={tabValue}
-          onChange={(e, newValue) => setTabValue(newValue)}
+          value={currentTab}
+          onChange={(e, newValue) => setCurrentTab(newValue)}
           indicatorColor="primary"
           textColor="primary"
           variant="fullWidth"
@@ -640,7 +589,7 @@ export default function LostAndFound() {
         }}
       >
         <DialogTitle sx={{ pb: 1 }}>
-          {editingItem ? 'Edit Item' : `Post New ${tabValue === 0 ? 'Lost' : 'Found'} Item`}
+          {editingItem ? 'Edit Item' : `Post New ${currentTab === 0 ? 'Lost' : 'Found'} Item`}
         </DialogTitle>
         <DialogContent>
           <TextField

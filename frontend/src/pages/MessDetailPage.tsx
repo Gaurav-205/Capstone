@@ -15,9 +15,6 @@ import {
   AppBar,
   Toolbar,
   Divider,
-  List,
-  ListItem,
-  ListItemText,
   Chip,
   Dialog,
   DialogTitle,
@@ -30,18 +27,17 @@ import {
   Select,
   MenuItem,
   Paper,
-  LinearProgress,
-  Snackbar
+  Snackbar,
+  List
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
-  AccessTime as AccessTimeIcon,
-  Star as StarIcon,
-  LocationOn as LocationIcon,
-  Restaurant as RestaurantIcon,
-  People as PeopleIcon,
-  CalendarToday as CalendarIcon,
-  LocalDining as LocalDiningIcon
+  ArrowBack,
+  AccessTime,
+  Star,
+  LocationOn,
+  Restaurant,
+  People,
+  LocalDining
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -129,7 +125,6 @@ const MessDetailPage: React.FC = () => {
   const [selectedMealType, setSelectedMealType] = useState<'Lunch' | 'Dinner'>('Lunch');
   const [currentTab, setCurrentTab] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   useEffect(() => {
     const fetchMessDetails = async () => {
@@ -253,10 +248,6 @@ const MessDetailPage: React.FC = () => {
     );
   }
 
-  const subscriptionPlan = mess.subscriptionPlans.find(
-    plan => plan.mealType === selectedMealType
-  );
-
   return (
     <>
       <AppBar position="static">
@@ -267,7 +258,7 @@ const MessDetailPage: React.FC = () => {
             onClick={() => navigate('/mess')}
             sx={{ mr: 2 }}
           >
-            <ArrowBackIcon />
+            <ArrowBack />
           </IconButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             {mess.name}
@@ -287,35 +278,35 @@ const MessDetailPage: React.FC = () => {
             <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <RestaurantIcon sx={{ mr: 1 }} />
+                  <Restaurant sx={{ mr: 1 }} />
                   <Typography variant="h5" component="div">
                     {mess.name}
                   </Typography>
                 </Box>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <LocationIcon sx={{ mr: 1, fontSize: 'small' }} />
+                  <LocationOn sx={{ mr: 1, fontSize: 'small' }} />
                   <Typography variant="body2">
                     {mess.location}
                   </Typography>
                 </Box>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <AccessTimeIcon sx={{ mr: 1, fontSize: 'small' }} />
+                  <AccessTime sx={{ mr: 1, fontSize: 'small' }} />
                   <Typography variant="body2">
                     Operating Hours: {mess.operatingHours.open} - {mess.operatingHours.close}
                   </Typography>
                 </Box>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <PeopleIcon sx={{ mr: 1, fontSize: 'small' }} />
+                  <People sx={{ mr: 1, fontSize: 'small' }} />
                   <Typography variant="body2">
                     Capacity: {mess.currentOccupancy}/{mess.capacity}
                   </Typography>
                 </Box>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <StarIcon sx={{ mr: 1, fontSize: 'small' }} />
+                  <Star sx={{ mr: 1, fontSize: 'small' }} />
                   <Rating value={mess.averageRating} readOnly precision={0.5} />
                   <Typography variant="body2" sx={{ ml: 1 }}>
                     ({mess.averageRating.toFixed(1)})
@@ -381,13 +372,13 @@ const MessDetailPage: React.FC = () => {
                     </Typography>
                     <Box sx={{ mb: 1 }}>
                       <Typography variant="body2" display="flex" alignItems="center">
-                        <LocalDiningIcon sx={{ mr: 1, fontSize: 'small' }} />
+                        <LocalDining sx={{ mr: 1, fontSize: 'small' }} />
                         Lunch (₹100) - {mess.operatingHours.lunch.start} to {mess.operatingHours.lunch.end}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="body2" display="flex" alignItems="center">
-                        <LocalDiningIcon sx={{ mr: 1, fontSize: 'small' }} />
+                        <LocalDining sx={{ mr: 1, fontSize: 'small' }} />
                         Dinner (₹100) - {mess.operatingHours.dinner.start} to {mess.operatingHours.dinner.end}
                       </Typography>
                     </Box>
@@ -409,7 +400,7 @@ const MessDetailPage: React.FC = () => {
                     onClick={handleSubscribe}
                     disabled={isSubmitting}
                     fullWidth
-                    startIcon={<LocalDiningIcon />}
+                    startIcon={<LocalDining />}
                   >
                     {isSubmitting ? <CircularProgress size={24} /> : 'Subscribe'}
                   </Button>

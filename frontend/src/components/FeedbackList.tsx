@@ -1,40 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import feedbackService, { Feedback } from '../services/feedbackService';
-import { API_URL } from '../config';
-import { 
-  Snackbar, 
-  Alert, 
-  Button, 
-  Box, 
-  Typography, 
-  Card, 
-  CardContent, 
+import {
+  Container,
+  Typography,
+  Box,
+  Card,
+  CardContent,
+  Button,
   Chip,
+  Alert,
+  Snackbar,
   Grid,
   IconButton,
   Tooltip,
-  LinearProgress,
-  Container,
-  Paper,
   Skeleton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  ImageList,
-  ImageListItem
+  Paper
 } from '@mui/material';
-import { 
+import {
   Add as AddIcon,
-  Download as DownloadIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon,
   Refresh as RefreshIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
-  Image as ImageIcon,
-  Description as DescriptionIcon
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 
 const FeedbackList: React.FC = () => {
@@ -134,54 +127,6 @@ const FeedbackList: React.FC = () => {
         return 'success';
       default:
         return 'default';
-    }
-  };
-
-  const getFullImageUrl = (url: string) => {
-    // If it's already a full URL, return as is
-    if (url.startsWith('http')) return url;
-    
-    // Remove any leading slashes
-    const cleanUrl = url.startsWith('/') ? url.substring(1) : url;
-    
-    // Extract the filename from the path
-    const filename = cleanUrl.split('/').pop() || cleanUrl;
-    
-    // Construct the full URL without the api prefix
-    const fullUrl = `${API_URL}/uploads/${filename}`;
-    console.log('Original URL:', url);
-    console.log('Clean URL:', cleanUrl);
-    console.log('Filename:', filename);
-    console.log('Full URL:', fullUrl);
-    return fullUrl;
-  };
-
-  const handleDownloadAttachment = async (url: string, filename: string) => {
-    try {
-      const fullUrl = getFullImageUrl(url);
-      console.log('Attempting to download from:', fullUrl);
-      const response = await fetch(fullUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (error) {
-      console.error('Error downloading file:', error);
-      console.error('URL attempted:', url);
-      console.error('Full URL attempted:', getFullImageUrl(url));
-      setSnackbar({
-        open: true,
-        message: 'Failed to download file. Please try again.',
-        severity: 'error'
-      });
     }
   };
 

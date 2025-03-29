@@ -21,12 +21,14 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
+  handleAuthCallback: (token: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   error: null,
+  handleAuthCallback: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -36,9 +38,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const handleAuthCallback = async (token: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await authService.handleGoogleCallback(token);
+      if (response.user) {
+        const userData: User = {
+          _id: response.user.id,
+          name: response.user.name,
+          email: response.user.email,
+          googleId: response.user.googleId
+        };
+        setUser(userData);
+      }
+    } catch (error: any) {
+      console.error('Auth callback error:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Failed to handle authentication callback';
+      setError(errorMessage);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        
         const token = localStorage.getItem('token');
         if (!token) {
           setLoading(false);
@@ -56,7 +88,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(userData);
         }
       } catch (error: any) {
-        setError(error.response?.data?.message || 'Failed to fetch user data');
+        console.error('Fetch user error:', error);
+        const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Failed to fetch user data';
+        setError(errorMessage);
         localStorage.removeItem('token');
       } finally {
         setLoading(false);
@@ -67,7 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, error }}>
+    <AuthContext.Provider value={{ user, loading, error, handleAuthCallback }}>
       {children}
     </AuthContext.Provider>
   );

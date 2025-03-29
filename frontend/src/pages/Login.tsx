@@ -9,14 +9,13 @@ import {
   TextField,
   Button,
   Link,
-  Divider,
   Alert,
-  Paper,
   useTheme,
   alpha,
   InputAdornment,
   IconButton,
-  Grid
+  Grid,
+  Divider
 } from '@mui/material';
 import {
   Google as GoogleIcon,
@@ -57,7 +56,8 @@ const Login: React.FC = () => {
 
   const handleGoogleLogin = () => {
     try {
-      window.location.href = 'http://localhost:5000/api/auth/google';
+      const googleAuthUrl = `${process.env.REACT_APP_API_URL}/auth/google`;
+      window.location.href = googleAuthUrl;
     } catch (error) {
       setError('Failed to initiate Google login');
     }

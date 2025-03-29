@@ -5,7 +5,6 @@ import {
   Typography,
   Button,
   Paper,
-  Avatar,
   CircularProgress,
   Alert,
   Grid
@@ -17,18 +16,11 @@ import {
   Search as SearchIcon,
   Restaurant as RestaurantIcon,
   Feedback as FeedbackIcon,
-  ReportProblem as ReportProblemIcon,
-  Home as HomeIcon,
-  Map as MapIcon
+  Home as HomeIcon
 } from '@mui/icons-material';
 import authService from '../services/auth.service';
 import { useAuth } from '../contexts/AuthContext';
 import CampusMap from '../components/CampusMap';
-
-interface User {
-  name: string;
-  email: string;
-}
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -63,19 +55,7 @@ const Dashboard: React.FC = () => {
     };
 
     fetchUserData();
-  }, [navigate]);
-
-  const handleLogout = () => {
-    try {
-      authService.logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Force logout even if there's an error
-      localStorage.removeItem('token');
-      navigate('/login');
-    }
-  };
+  }, [navigate, user]);
 
   if (loading) {
     return (

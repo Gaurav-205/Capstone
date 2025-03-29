@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import feedbackService, { CreateFeedbackData } from '../services/feedbackService';
 import { 
@@ -18,7 +18,9 @@ import {
   SelectChangeEvent,
   IconButton,
   ImageList,
-  ImageListItem
+  ImageListItem,
+  Container,
+  Paper
 } from '@mui/material';
 import { CloudUpload as CloudUploadIcon, Close as CloseIcon } from '@mui/icons-material';
 
@@ -38,7 +40,6 @@ const FeedbackForm: React.FC = () => {
     attachments: []
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -50,7 +51,7 @@ const FeedbackForm: React.FC = () => {
   });
 
   // Clean up previews when component unmounts
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       formData.attachments.forEach(attachment => {
         if ('preview' in attachment.file) {
@@ -58,7 +59,7 @@ const FeedbackForm: React.FC = () => {
         }
       });
     };
-  }, []);
+  }, [formData.attachments]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
     const { name, value } = e.target;

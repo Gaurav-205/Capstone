@@ -22,11 +22,8 @@ const WeeklyMenuView: React.FC = () => {
   const days = getAllDays();
 
   useEffect(() => {
-    // Set initial day to current day of the week, defaulting to Monday if weekend
-    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-    const initialDay = days.includes(today) ? today : 'Monday';
-    setSelectedDay(initialDay);
-  }, []);
+    setSelectedDay(days[0]);
+  }, [days]);
 
   useEffect(() => {
     if (selectedDay) {

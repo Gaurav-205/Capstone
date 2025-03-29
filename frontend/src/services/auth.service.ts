@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3000';
 
 // Types
 export interface AuthResponse {
@@ -80,6 +81,7 @@ class AuthService {
         return config;
       },
       (error) => {
+        console.error('Request interceptor error:', error);
         return Promise.reject(error);
       }
     );
@@ -91,7 +93,7 @@ class AuthService {
         if (error.response?.status === 401) {
           this.clearAuth();
           if (!window.location.pathname.includes('/login')) {
-            window.location.href = '/login?error=session_expired';
+            window.location.href = `${FRONTEND_URL}/login?error=session_expired`;
           }
         }
         return Promise.reject(error);
@@ -228,14 +230,23 @@ class AuthService {
 
   public async handleGoogleCallback(token: string) {
     try {
-      this.setAuth(token, { id: '', name: '', email: '', hasSetPassword: false }); // Initialize with hasSetPassword false
-      const userData = await this.getCurrentUser();
-      if (!userData.user) {
+      // Store the token
+      this.setAuth(token, { id: '', name: '', email: '', hasSetPassword: false });
+      
+      // Get the user data
+      const response = await axios.get(`${API_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!response.data.user) {
         throw new Error('Failed to get user data');
       }
-      this.setAuth(token, userData.user); // Update with actual user data
-      return userData;
-    } catch (error) {
+
+      // Update the auth state with the user data
+      this.setAuth(token, response.data.user);
+      return response.data;
+    } catch (error: any) {
+      console.error('Google callback error:', error.response?.data || error);
       this.clearAuth();
       throw error;
     }

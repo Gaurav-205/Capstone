@@ -82,7 +82,7 @@ const EditFeedback: React.FC = () => {
   }, [id]);
 
   // Clean up previews when component unmounts
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       if (formData.attachments) {
         formData.attachments.forEach(attachment => {
@@ -92,7 +92,7 @@ const EditFeedback: React.FC = () => {
         });
       }
     };
-  }, []);
+  }, [formData.attachments]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
     const { name, value } = e.target;

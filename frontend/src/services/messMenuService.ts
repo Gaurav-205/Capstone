@@ -1,5 +1,3 @@
-import { API_URL } from '../config';
-
 export interface MenuItem {
   name: string;
   items: string[];
