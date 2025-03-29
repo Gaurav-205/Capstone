@@ -42,13 +42,13 @@ const AuthCallback: React.FC = () => {
         await authService.handleGoogleCallback(token);
         
         console.log('Authentication successful, redirecting to dashboard...');
-        setIsProcessing(false);
         navigate('/dashboard', { replace: true });
       } catch (err: any) {
         console.error('Authentication error:', err);
         const errorMessage = err.message || 'Authentication failed. Please try again.';
         console.error('Setting error message:', errorMessage);
         setError(errorMessage);
+      } finally {
         setIsProcessing(false);
       }
     };
@@ -103,6 +103,10 @@ const AuthCallback: React.FC = () => {
         </Button>
       </Box>
     );
+  }
+
+  if (!isProcessing) {
+    return null; // Don't render anything while redirecting
   }
 
   return (
