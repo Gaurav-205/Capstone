@@ -52,9 +52,8 @@ router.get(
       });
 
       // Create redirect URL without double slashes
-      const baseUrl = 'https://ulifee.netlify.app';
-      const redirectPath = '/auth/callback';
-      const redirectURL = new URL(redirectPath, baseUrl);
+      const redirectURL = new URL('https://ulifee.netlify.app');
+      redirectURL.pathname = 'auth/callback';  // No leading slash to prevent double slash
       redirectURL.searchParams.append('token', token);
       redirectURL.searchParams.append('needsPassword', req.user.needsPassword);
 
