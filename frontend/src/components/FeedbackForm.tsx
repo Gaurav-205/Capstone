@@ -113,25 +113,67 @@ const FeedbackForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!formData.title.trim()) {
+      setSnackbar({
+        open: true,
+        message: 'Please enter a title',
+        severity: 'error'
+      });
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      setSnackbar({
+        open: true,
+        message: 'Please enter a description',
+        severity: 'error'
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await feedbackService.createFeedback(formData);
+      const response = await feedbackService.createFeedback(formData);
+      console.log('Feedback submitted successfully:', response);
+      
       setSnackbar({
         open: true,
         message: 'Feedback submitted successfully!',
         severity: 'success'
       });
+      
+      // Clear form data
+      setFormData({
+        type: 'feedback',
+        category: 'other',
+        title: '',
+        description: '',
+        isAnonymous: false,
+        priority: 'medium',
+        attachments: []
+      });
+
+      // Navigate after a short delay
       setTimeout(() => {
         navigate('/feedback');
       }, 1500);
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error submitting feedback:', error);
+      
+      // Extract error message from the response
+      const errorMessage = error.response?.data?.message 
+        || error.response?.data?.error
+        || error.message
+        || 'Failed to submit feedback. Please try again.';
+      
       setSnackbar({
         open: true,
-        message: 'Failed to submit feedback. Please try again.',
+        message: errorMessage,
         severity: 'error'
       });
-      console.error('Error submitting feedback:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -197,24 +239,28 @@ const FeedbackForm: React.FC = () => {
 
           <TextField
             fullWidth
+            required
             label="Title"
             name="title"
             value={formData.title}
             onChange={handleChange}
-            required
-            variant="outlined"
+            error={formData.title.trim() === ''}
+            helperText={formData.title.trim() === '' ? 'Title is required' : ''}
+            sx={{ mb: 2 }}
           />
 
           <TextField
             fullWidth
+            required
+            multiline
+            rows={4}
             label="Description"
             name="description"
             value={formData.description}
             onChange={handleChange}
-            multiline
-            rows={4}
-            required
-            variant="outlined"
+            error={formData.description.trim() === ''}
+            helperText={formData.description.trim() === '' ? 'Description is required' : ''}
+            sx={{ mb: 2 }}
           />
 
           <FormControlLabel
@@ -329,24 +375,35 @@ const FeedbackForm: React.FC = () => {
               color="primary"
               fullWidth
               disabled={isSubmitting}
+              sx={{ py: 1.5 }}
             >
               {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
             </Button>
           </Box>
-          {isSubmitting && <LinearProgress sx={{ mt: 2 }} />}
         </form>
-      </Paper>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+        {isSubmitting && (
+          <Box sx={{ width: '100%', mt: 2 }}>
+            <LinearProgress />
+          </Box>
+        )}
+
+        <Snackbar 
+          open={snackbar.open} 
+          autoHideDuration={6000} 
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleCloseSnackbar} 
+            severity={snackbar.severity}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Paper>
     </Container>
   );
 };
