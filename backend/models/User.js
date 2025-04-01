@@ -2,44 +2,90 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Name is required'],
-    trim: true
-  },
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    trim: true,
-    lowercase: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
-  },
-  password: {
-    type: String,
-    required: function() {
-      return !this.googleId || this.hasSetPassword;
-    },
-    minlength: [6, 'Password must be at least 6 characters long'],
-    select: false
-  },
-  hasSetPassword: {
-    type: Boolean,
-    default: false
-  },
-  role: {
-    type: String,
-    enum: ['user', 'admin'],
-    default: 'user'
-  },
   googleId: {
     type: String,
     unique: true,
     sparse: true
   },
-  resetPasswordToken: String,
-  resetPasswordExpire: Date,
+  email: {
+    type: String,
+    required: function() {
+      return !this.googleId; // Only required if not using Google OAuth
+    },
+    unique: true
+  },
+  name: {
+    type: String,
+    required: function() {
+      return !this.googleId; // Only required if not using Google OAuth
+    }
+  },
+  avatar: {
+    type: String,
+    default: ''
+  },
+  phone: {
+    type: String,
+    default: ''
+  },
+  dateOfBirth: {
+    type: Date
+  },
+  gender: {
+    type: String,
+    enum: ['male', 'female', 'other', 'prefer_not_to_say']
+  },
+  // Academic Information
+  studentId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  course: {
+    type: String
+  },
+  semester: {
+    type: String
+  },
+  batch: {
+    type: String
+  },
+  hostelBlock: {
+    type: String
+  },
+  roomNumber: {
+    type: String
+  },
+  // Notification Preferences
+  notificationPreferences: {
+    email: {
+      type: Boolean,
+      default: true
+    },
+    sms: {
+      type: Boolean,
+      default: true
+    },
+    push: {
+      type: Boolean,
+      default: true
+    }
+  },
+  password: {
+    type: String
+  },
+  hasSetPassword: {
+    type: Boolean,
+    default: false
+  },
+  picture: {
+    type: String
+  },
   createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
     type: Date,
     default: Date.now
   }
@@ -72,6 +118,14 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   } catch (error) {
     throw new Error('Password comparison failed');
   }
+};
+
+// Method to get public profile
+userSchema.methods.getPublicProfile = function() {
+  const userObject = this.toObject();
+  delete userObject.password;
+  delete userObject.googleId;
+  return userObject;
 };
 
 module.exports = mongoose.model('User', userSchema); 

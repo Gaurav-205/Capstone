@@ -3,40 +3,38 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import {
-  Container,
   Box,
   Typography,
   TextField,
   Button,
   Link,
-  Alert
+  Alert,
+  Stack,
 } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import authService from '../services/auth.service';
 
 const schema = yup.object().shape({
-  email: yup.string().email('Invalid email').required('Email is required')
+  email: yup.string().email('Invalid email').required('Email is required'),
 });
 
-interface ForgotPasswordData {
-  email: string;
-}
-
 const ForgotPassword: React.FC = () => {
+  const navigate = useNavigate();
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+
   const {
     register,
     handleSubmit,
     formState: { errors }
-  } = useForm<ForgotPasswordData>({
+  } = useForm({
     resolver: yupResolver(schema)
   });
 
-  const onSubmit = async (data: ForgotPasswordData) => {
+  const onSubmit = async (data: { email: string }) => {
     try {
-      const response = await authService.forgotPassword(data.email);
-      setSuccess(response.message);
+      await authService.forgotPassword(data.email);
+      setSuccess('Password reset instructions have been sent to your email');
       setError('');
     } catch (err: any) {
       setError(err.response?.data?.message || 'An error occurred');
@@ -45,60 +43,129 @@ const ForgotPassword: React.FC = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        bgcolor: '#fff',
+      }}
+    >
+      {/* Left side - Image */}
       <Box
         sx={{
-          marginTop: 8,
+          width: '50%',
+          display: { xs: 'none', md: 'block' },
+          backgroundImage: 'url(/images/nature-leaves.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          borderTopRightRadius: '2rem',
+          borderBottomRightRadius: '2rem',
+        }}
+      />
+
+      {/* Right side - Form */}
+      <Box
+        sx={{
+          width: '50%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center'
+          justifyContent: 'center',
+          alignItems: 'center',
+          p: { xs: 4, md: 8 },
         }}
       >
-        <Typography component="h1" variant="h5">
-          Forgot Password
-        </Typography>
-
-        {error && (
-          <Alert severity="error" sx={{ width: '100%', mt: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {success && (
-          <Alert severity="success" sx={{ width: '100%', mt: 2 }}>
-            {success}
-          </Alert>
-        )}
-
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 1 }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email Address"
-            autoComplete="email"
-            autoFocus
-            {...register('email')}
-            error={!!errors.email}
-            helperText={errors.email?.message}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-          >
-            Reset Password
-          </Button>
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Link component={RouterLink} to="/login" variant="body2">
-              Back to Sign in
-            </Link>
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: '400px',
+          }}
+        >
+          <Box sx={{ mb: 6, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              component="img"
+              src="/logo.png"
+              alt="Logo"
+              sx={{ width: 24, height: 24 }}
+            />
+            <Typography variant="subtitle1" fontWeight="500">
+              Scholarlyfe
+            </Typography>
           </Box>
+
+          <Typography variant="h4" component="h1" fontWeight="600" sx={{ mb: 1 }}>
+            Reset Password
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+            Enter your email and we'll send you instructions to reset your password
+          </Typography>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          )}
+
+          {success && (
+            <Alert severity="success" sx={{ mb: 3 }}>
+              {success}
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <Stack spacing={2.5}>
+              <TextField
+                fullWidth
+                label="Email"
+                {...register('email')}
+                error={!!errors.email}
+                helperText={errors.email?.message}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: '#F8F9FA',
+                    '&.Mui-focused': {
+                      bgcolor: '#fff',
+                    }
+                  }
+                }}
+              />
+
+              <Button
+                fullWidth
+                type="submit"
+                variant="contained"
+                size="large"
+                sx={{
+                  bgcolor: '#4CAF50',
+                  color: '#fff',
+                  py: 1.5,
+                  '&:hover': {
+                    bgcolor: '#388E3C',
+                  },
+                }}
+              >
+                Send Reset Link
+              </Button>
+            </Stack>
+          </form>
+
+          <Typography variant="body2" sx={{ mt: 4, textAlign: 'center', color: 'text.secondary' }}>
+            Remember your password?{' '}
+            <Link
+              component={RouterLink}
+              to="/login"
+              sx={{
+                color: '#4CAF50',
+                textDecoration: 'none',
+                fontWeight: 500,
+                '&:hover': { textDecoration: 'underline' }
+              }}
+            >
+              Back to Login
+            </Link>
+          </Typography>
         </Box>
       </Box>
-    </Container>
+    </Box>
   );
 };
 

@@ -148,4 +148,37 @@ exports.updateFeedbackStatus = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error updating feedback', error: error.message });
   }
-}; 
+};
+
+// Submit resolution for feedback
+exports.submitResolution = async (req, res) => {
+  try {
+    const { description } = req.body;
+    
+    // Find the feedback and verify ownership
+    const feedback = await Feedback.findOne({
+      _id: req.params.id,
+      userId: req.user._id
+    });
+
+    if (!feedback) {
+      return res.status(404).json({ message: 'Feedback not found' });
+    }
+
+    // Update feedback with resolution
+    feedback.status = 'resolved';
+    feedback.resolution = {
+      description,
+      resolvedBy: req.user._id,
+      resolvedAt: new Date()
+    };
+
+    await feedback.save();
+    res.json(feedback);
+  } catch (error) {
+    console.error('Error submitting resolution:', error);
+    res.status(500).json({ message: 'Error submitting resolution', error: error.message });
+  }
+};
+
+module.exports = exports; 

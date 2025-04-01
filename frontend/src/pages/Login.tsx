@@ -3,27 +3,17 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import {
-  Container,
   Box,
   Typography,
   TextField,
   Button,
   Link,
   Alert,
-  useTheme,
-  alpha,
-  InputAdornment,
-  IconButton,
-  Grid,
-  Divider
+  Stack,
+  Divider,
+  Paper,
 } from '@mui/material';
-import {
-  Google as GoogleIcon,
-  Visibility,
-  VisibilityOff,
-  Email as EmailIcon,
-  Lock as LockIcon
-} from '@mui/icons-material';
+import { Google as GoogleIcon } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import authService, { LoginData } from '../services/auth.service';
 
@@ -33,10 +23,9 @@ const schema = yup.object().shape({
 });
 
 const Login: React.FC = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const [error, setError] = useState<string>('');
-  const [showPassword, setShowPassword] = useState(false);
+  
   const {
     register,
     handleSubmit,
@@ -65,224 +54,183 @@ const Login: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ minHeight: '100vh', display: 'flex' }}>
-      <Grid container spacing={0}>
-        {/* Left side - Form */}
-        <Grid item xs={12} md={6}>
-          <Box
-            sx={{
-              minHeight: '100vh',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              p: { xs: 2, sm: 4, md: 6 },
-              background: '#fff'
-            }}
-          >
-            <Box sx={{ maxWidth: 480, mx: 'auto', width: '100%' }}>
-              <Typography
-                variant="h4"
-                component="h1"
-                sx={{
-                  mb: 1,
-                  fontWeight: 700,
-                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`,
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent'
-                }}
-              >
-                Welcome back 👋
-              </Typography>
-              <Typography
-                variant="body1"
-                sx={{ mb: 4, color: 'text.secondary' }}
-              >
-                Please enter your details to sign in.
-              </Typography>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        bgcolor: '#fff',
+      }}
+    >
+      {/* Left side - Image */}
+      <Box
+        sx={{
+          width: '50%',
+          display: { xs: 'none', md: 'block' },
+          backgroundImage: 'url(/images/nature-leaves.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          borderTopRightRadius: '2rem',
+          borderBottomRightRadius: '2rem',
+        }}
+      />
 
-              {error && (
-                <Alert severity="error" sx={{ mb: 3 }}>
-                  {error}
-                </Alert>
-              )}
-
-              <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-                <TextField
-                  fullWidth
-                  label="Email"
-                  {...register('email')}
-                  error={!!errors.email}
-                  helperText={errors.email?.message}
-                  sx={{
-                    mb: 2,
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      bgcolor: alpha(theme.palette.common.black, 0.02)
-                    }
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <EmailIcon color="action" />
-                      </InputAdornment>
-                    )
-                  }}
-                />
-                <TextField
-                  fullWidth
-                  type={showPassword ? 'text' : 'password'}
-                  label="Password"
-                  {...register('password')}
-                  error={!!errors.password}
-                  helperText={errors.password?.message}
-                  sx={{
-                    mb: 2,
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      bgcolor: alpha(theme.palette.common.black, 0.02)
-                    }
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <LockIcon color="action" />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowPassword(!showPassword)}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    )
-                  }}
-                />
-
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                  <Link
-                    component={RouterLink}
-                    to="/forgot-password"
-                    variant="body2"
-                    sx={{
-                      color: theme.palette.primary.main,
-                      textDecoration: 'none',
-                      '&:hover': { textDecoration: 'underline' }
-                    }}
-                  >
-                    Forgot password?
-                  </Link>
-                </Box>
-
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  size="large"
-                  sx={{
-                    py: 1.5,
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    fontSize: '1rem',
-                    fontWeight: 600,
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`,
-                    '&:hover': {
-                      background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`
-                    }
-                  }}
-                >
-                  Sign in
-                </Button>
-
-                <Box sx={{ position: 'relative', my: 3 }}>
-                  <Divider>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        px: 2,
-                        color: 'text.secondary',
-                        bgcolor: 'background.paper'
-                      }}
-                    >
-                      OR
-                    </Typography>
-                  </Divider>
-                </Box>
-
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  size="large"
-                  startIcon={<GoogleIcon />}
-                  onClick={handleGoogleLogin}
-                  sx={{
-                    py: 1.5,
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    fontSize: '1rem',
-                    fontWeight: 500,
-                    borderColor: alpha(theme.palette.common.black, 0.12),
-                    color: theme.palette.text.primary,
-                    '&:hover': {
-                      borderColor: alpha(theme.palette.common.black, 0.2),
-                      background: alpha(theme.palette.common.black, 0.02)
-                    }
-                  }}
-                >
-                  Sign in with Google
-                </Button>
-
-                <Box sx={{ mt: 4, textAlign: 'center' }}>
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    Don't have an account?{' '}
-                    <Link
-                      component={RouterLink}
-                      to="/signup"
-                      sx={{
-                        color: theme.palette.primary.main,
-                        textDecoration: 'none',
-                        fontWeight: 600,
-                        '&:hover': { textDecoration: 'underline' }
-                      }}
-                    >
-                      Sign up
-                    </Link>
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-          </Box>
-        </Grid>
-
-        {/* Right side - Image */}
-        <Grid
-          item
-          md={6}
+      {/* Right side - Form */}
+      <Box
+        sx={{
+          width: '50%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          p: { xs: 4, md: 8 },
+        }}
+      >
+        <Box
           sx={{
-            display: { xs: 'none', md: 'block' },
-            position: 'relative',
-            overflow: 'hidden'
+            width: '100%',
+            maxWidth: '400px',
           }}
         >
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 0,
-              right: 0,
-              bottom: 0,
-              left: 0,
-              bgcolor: alpha(theme.palette.primary.main, 0.08),
-              backgroundImage: `url('/images/auth-background.jpg')`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              borderRadius: '24px 0 0 24px'
-            }}
-          />
-        </Grid>
-      </Grid>
-    </Container>
+          <Box sx={{ mb: 6, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              component="img"
+              src="/logo.png"
+              alt="Logo"
+              sx={{ width: 24, height: 24 }}
+            />
+            <Typography variant="subtitle1" fontWeight="500">
+              Scholarlyfe
+            </Typography>
+          </Box>
+
+          <Typography variant="h4" component="h1" fontWeight="600" sx={{ mb: 1 }}>
+            Hello,
+          </Typography>
+          <Typography variant="h4" component="h1" fontWeight="600" sx={{ mb: 4 }}>
+            Welcome to Campus Life
+          </Typography>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <Stack spacing={2.5}>
+              <TextField
+                fullWidth
+                label="Email"
+                {...register('email')}
+                error={!!errors.email}
+                helperText={errors.email?.message}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: '#F8F9FA',
+                    '&.Mui-focused': {
+                      bgcolor: '#fff',
+                    }
+                  }
+                }}
+              />
+              
+              <TextField
+                fullWidth
+                type="password"
+                label="Password"
+                {...register('password')}
+                error={!!errors.password}
+                helperText={errors.password?.message}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: '#F8F9FA',
+                    '&.Mui-focused': {
+                      bgcolor: '#fff',
+                    }
+                  }
+                }}
+              />
+
+              <Box sx={{ textAlign: 'right' }}>
+                <Link
+                  component={RouterLink}
+                  to="/forgot-password"
+                  sx={{
+                    color: 'text.secondary',
+                    fontSize: '0.875rem',
+                    textDecoration: 'none',
+                    '&:hover': { textDecoration: 'underline' }
+                  }}
+                >
+                  Forgot your password?
+                </Link>
+              </Box>
+
+              <Button
+                fullWidth
+                type="submit"
+                variant="contained"
+                size="large"
+                sx={{
+                  bgcolor: '#4CAF50',
+                  color: '#fff',
+                  py: 1.5,
+                  '&:hover': {
+                    bgcolor: '#388E3C',
+                  },
+                }}
+              >
+                Login
+              </Button>
+
+              <Box sx={{ position: 'relative', my: 1 }}>
+                <Divider>
+                  <Typography variant="body2" sx={{ px: 2, color: 'text.secondary' }}>
+                    or
+                  </Typography>
+                </Divider>
+              </Box>
+
+              <Button
+                fullWidth
+                variant="outlined"
+                size="large"
+                onClick={handleGoogleLogin}
+                startIcon={<GoogleIcon />}
+                sx={{
+                  py: 1.5,
+                  color: 'text.primary',
+                  borderColor: '#E0E0E0',
+                  bgcolor: '#fff',
+                  '&:hover': {
+                    bgcolor: '#F8F9FA',
+                    borderColor: '#E0E0E0',
+                  }
+                }}
+              >
+                Continue with Google
+              </Button>
+            </Stack>
+          </form>
+
+          <Typography variant="body2" sx={{ mt: 4, textAlign: 'center', color: 'text.secondary' }}>
+            Don't have an account?{' '}
+            <Link
+              component={RouterLink}
+              to="/signup"
+              sx={{
+                color: '#4CAF50',
+                textDecoration: 'none',
+                fontWeight: 500,
+                '&:hover': { textDecoration: 'underline' }
+              }}
+            >
+              Sign up
+            </Link>
+          </Typography>
+        </Box>
+      </Box>
+    </Box>
   );
 };
 

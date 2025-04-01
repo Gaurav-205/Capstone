@@ -34,43 +34,36 @@ if (!fs.existsSync(uploadsDir)) {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
-
-// CORS configuration with multiple origins
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://ulifee.netlify.app',
-  'https://ulife-testing1-z1ch.onrender.com',
-  /^https:\/\/[a-zA-Z0-9-]+--ulifee\.netlify\.app$/  // Allow Netlify preview URLs
-].filter(Boolean);
-
 app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Check if the origin matches any allowed pattern
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
-      }
-      return allowedOrigin === origin;
-    });
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.log('Origin not allowed by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: ['Content-Type', 'Authorization']
+  origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+  credentials: true
 }));
 
-// Serve static files from uploads directory
+// Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Initialize passport
+app.use(passport.initialize());
+
+// Import routes
+const authRoutes = require('./routes/auth.routes');
+const itemRoutes = require('./routes/items.routes');
+const feedbackRoutes = require('./routes/feedbackRoutes');
+const messRoutes = require('./routes/messRoutes');
+const hostelRoutes = require('./routes/hostelRoutes');
+const facilityRoutes = require('./routes/facilityRoutes');
+const lostFoundRoutes = require('./routes/lostFoundRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+
+// Use routes
+app.use('/api/auth', authRoutes);
+app.use('/api/items', itemRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/mess', messRoutes);
+app.use('/api/hostel', hostelRoutes);
+app.use('/api/facility', facilityRoutes);
+app.use('/api/lost-found', lostFoundRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Session configuration
 app.use(session({
@@ -84,79 +77,15 @@ app.use(session({
   }
 }));
 
-// Initialize passport
-app.use(passport.initialize());
-app.use(passport.session());
-
-// MongoDB Atlas connection options
-const mongooseOptions = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  retryWrites: true,
-  w: 'majority',
-  serverSelectionTimeoutMS: 30000,
-  socketTimeoutMS: 45000,
-  maxPoolSize: 50,
-  wtimeoutMS: 2500,
-  connectTimeoutMS: 30000
-};
-
-// Connect to MongoDB with retry logic
-const connectWithRetry = async (retries = 5, interval = 5000) => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      await mongoose.connect(process.env.MONGODB_URI, mongooseOptions);
-      console.log('Connected to MongoDB Atlas successfully');
-      return;
-    } catch (err) {
-      console.error(`MongoDB connection attempt ${i + 1} failed:`, err.message);
-      if (i === retries - 1) {
-        console.error('All connection attempts failed. Exiting...');
-        process.exit(1);
-      }
-      await new Promise(resolve => setTimeout(resolve, interval));
-    }
-  }
-};
-
-// Start connection process
-connectWithRetry().catch(err => {
-  console.error('Fatal MongoDB connection error:', err);
-  process.exit(1);
-});
-
-// Monitor MongoDB connection
-mongoose.connection.on('error', err => {
-  console.error('MongoDB connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.warn('MongoDB disconnected. Attempting to reconnect...');
-  connectWithRetry();
-});
-
-mongoose.connection.on('connected', async () => {
-  console.log('MongoDB connection established');
-  
-  // Seed mess data if none exists
-  const messCount = await Mess.countDocuments();
-  if (messCount === 0) {
-    await seedMesses();
-  }
-});
-
-// Routes
-app.use('/api/auth', require('./routes/auth.routes'));
-app.use('/api/items', require('./routes/items.routes'));
-app.use('/api/mess', require('./routes/messRoutes'));
-app.use('/api/feedback', require('./routes/feedbackRoutes'));
-app.use('/api/hostels', require('./routes/hostelRoutes'));
-app.use('/api/facilities', require('./routes/facilityRoutes'));
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
-});
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log('Connected to MongoDB successfully');
+  })
+  .catch((err) => {
+    console.error('MongoDB connection error:', err);
+    process.exit(1);
+  });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -197,17 +126,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Promise Rejection:', err);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-  process.exit(1);
-});
-
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
@@ -228,4 +146,4 @@ process.on('SIGTERM', () => {
       process.exit(0);
     });
   });
-}); 
+});

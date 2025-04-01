@@ -8,7 +8,8 @@ const {
   getFeedbackById,
   updateFeedbackStatus,
   updateFeedback,
-  deleteFeedback
+  deleteFeedback,
+  submitResolution
 } = require('../controllers/feedbackController');
 
 // All routes require authentication
@@ -31,5 +32,8 @@ router.delete('/:id', deleteFeedback);
 
 // Update feedback status
 router.patch('/:id/status', updateFeedbackStatus);
+
+// Submit resolution for feedback
+router.post('/:id/resolve', submitResolution);
 
 module.exports = router; 

@@ -3,28 +3,34 @@ const User = require('../models/User');
 
 exports.isAuthenticated = async (req, res, next) => {
   try {
+    console.log('Auth Middleware - Headers:', req.headers);
     let token;
 
     // Get token from Authorization header
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
+      console.log('Auth Middleware - Token:', token);
     }
 
     // Check if token exists
     if (!token) {
+      console.log('Auth Middleware - No token found');
       return res.status(401).json({ message: 'Not authorized - No token' });
     }
 
     try {
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('Auth Middleware - Decoded token:', decoded);
 
       // Get user from token (using id instead of userId to match token creation)
       const user = await User.findById(decoded.id).select('-password');
       if (!user) {
+        console.log('Auth Middleware - User not found');
         return res.status(401).json({ message: 'Not authorized - User not found' });
       }
 
+      console.log('Auth Middleware - User found:', user._id);
       // Add user to request object
       req.user = user;
       next();

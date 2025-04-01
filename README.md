@@ -1,116 +1,129 @@
 # ULife - University Life Management System
 
-A comprehensive platform for managing university life, including hostel facilities, mess management, and feedback systems.
+A comprehensive web application for managing university life, including hostel facilities, lost and found items, and student profiles.
 
 ## Features
 
-- User Authentication (Email/Password & Google OAuth)
-- Hostel Facility Information
-- Mess Management System
-- Feedback System
-- Lost and Found Items
-- Campus Map Integration
+- **User Authentication**
+  - Google OAuth integration
+  - JWT-based authentication
+  - Secure password management
 
-## Prerequisites
+- **Profile Management**
+  - Personal information management
+  - Academic details
+  - Profile picture upload
+  - Notification preferences
 
+- **Hostel & Facilities**
+  - Hostel block information
+  - Room management
+  - Facility booking
+
+- **Lost and Found**
+  - Item posting
+  - Search and filter capabilities
+  - Image upload for items
+  - Status tracking
+
+- **Feedback System**
+  - User feedback submission
+  - Rating system
+  - Admin feedback management
+
+## Tech Stack
+
+### Frontend
+- React.js with TypeScript
+- Material-UI for components
+- Context API for state management
+- Axios for API calls
+
+### Backend
+- Node.js with Express
+- MongoDB with Mongoose
+- JWT for authentication
+- Multer for file uploads
+
+## Getting Started
+
+### Prerequisites
 - Node.js (v14 or higher)
 - MongoDB
-- Google OAuth credentials
-- Mapbox API key
+- npm or yarn
 
-## Environment Variables
-
-### Frontend (.env)
-```
-REACT_APP_API_URL=http://localhost:5000/api
-REACT_APP_MAPBOX_TOKEN=your_mapbox_token_here
-REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id
-REACT_APP_GOOGLE_CLIENT_SECRET=your_google_client_secret
-REACT_APP_FRONTEND_URL=http://localhost:3000
-```
-
-### Backend (.env)
-```
-MONGODB_URI=your_mongodb_uri
-JWT_SECRET=your_jwt_secret
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-FRONTEND_URL=http://localhost:3000
-API_URL=http://localhost:5000
-```
-
-## Installation
+### Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/ulife.git
-cd ulife
+git clone https://github.com/yourusername/ULife.git
+cd ULife
 ```
 
-2. Install frontend dependencies:
+2. Install dependencies:
 ```bash
-cd frontend
-npm install
-```
-
-3. Install backend dependencies:
-```bash
-cd ../backend
-npm install
-```
-
-4. Set up environment variables:
-- Copy `.env.example` to `.env` in both frontend and backend directories
-- Update the variables with your values
-
-## Development
-
-1. Start the backend server:
-```bash
+# Install backend dependencies
 cd backend
-npm run dev
+npm install
+
+# Install frontend dependencies
+cd ../frontend
+npm install
 ```
 
-2. Start the frontend development server:
-```bash
-cd frontend
-npm start
+3. Environment Setup:
+
+Create `.env` files in both frontend and backend directories:
+
+Frontend `.env`:
+```
+REACT_APP_API_URL=http://localhost:5000/api
+REACT_APP_FRONTEND_URL=http://localhost:3000
 ```
 
-## Production Build
-
-1. Build the frontend:
-```bash
-cd frontend
-npm run build
+Backend `.env`:
+```
+PORT=5000
+MONGODB_URI=your_mongodb_uri
+JWT_SECRET=your_jwt_secret
+GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
-2. Start the production server:
+4. Start the application:
+
+Backend:
 ```bash
 cd backend
 npm start
 ```
 
-## Deployment
+Frontend:
+```bash
+cd frontend
+npm start
+```
 
-### Frontend (React)
-- Build the application using `npm run build`
-- Deploy the `build` folder to your hosting service
-- Configure environment variables in your hosting platform
+The application will be available at `http://localhost:3000`
 
-### Backend (Node.js)
-- Deploy to a Node.js hosting service
-- Set up environment variables
-- Configure MongoDB connection
-- Set up Google OAuth credentials
+## Project Structure
 
-## Security Considerations
-
-- All API endpoints are protected with JWT authentication
-- Passwords are hashed using bcrypt
-- Environment variables are used for sensitive data
-- CORS is configured for security
-- Input validation is implemented
+```
+ULife/
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── contexts/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── utils/
+│   └── public/
+└── backend/
+    ├── controllers/
+    ├── models/
+    ├── routes/
+    ├── middleware/
+    └── uploads/
+```
 
 ## Contributing
 
@@ -122,8 +135,10 @@ npm start
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Support
+## Acknowledgments
 
-For support, email support@ulife.com or create an issue in the repository. 
+- Material-UI for the beautiful components
+- Google OAuth for authentication
+- All contributors who have helped with the project 

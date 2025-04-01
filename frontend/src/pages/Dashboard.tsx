@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Container,
   Box,
   Typography,
   Button,
@@ -11,18 +10,26 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Logout as LogoutIcon, 
-  Person as PersonIcon, 
-  Search as SearchIcon,
-  Restaurant as RestaurantIcon,
+  Restaurant as RestaurantIcon, 
   Feedback as FeedbackIcon,
-  Home as HomeIcon
+  Home as HomeIcon,
+  Search as SearchIcon,
+  Map as MapIcon,
 } from '@mui/icons-material';
 import authService from '../services/auth.service';
 import { useAuth } from '../contexts/AuthContext';
 import CampusMap from '../components/CampusMap';
+import HostelFacility from '../components/HostelFacility';
+import MessManagement from '../components/MessManagement';
+import LostAndFound from '../components/LostAndFound';
+import Feedback from '../components/Feedback';
+import Profile from './Profile';
 
-const Dashboard: React.FC = () => {
+type DashboardProps = {
+  section?: string;
+};
+
+const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -57,6 +64,10 @@ const Dashboard: React.FC = () => {
     fetchUserData();
   }, [navigate, user]);
 
+  const handleNavigation = (path: string) => {
+    navigate(path);
+  };
+
   if (loading) {
     return (
       <Box
@@ -72,171 +83,251 @@ const Dashboard: React.FC = () => {
 
   if (error) {
     return (
-      <Container component="main" maxWidth="md">
-        <Box
-          sx={{
-            marginTop: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center'
-          }}
-        >
-          <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-            {error}
-          </Alert>
-          <Typography variant="body1">
-            Redirecting to login page...
-          </Typography>
-        </Box>
-      </Container>
+      <Box
+        sx={{
+          marginTop: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
+        }}
+      >
+        <Alert severity="error" sx={{ width: '100%', maxWidth: 'md', mb: 2 }}>
+          {error}
+        </Alert>
+        <Typography variant="body1">
+          Redirecting to login page...
+        </Typography>
+      </Box>
     );
   }
 
-  return (
-    <Container maxWidth="lg">
-      <Box sx={{ mt: 4, mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Welcome, {user?.name}!
-        </Typography>
-        <Typography variant="subtitle1" color="text.secondary">
-          Manage your university life efficiently
-        </Typography>
-      </Box>
+  const renderContent = () => {
+    switch (section) {
+      case 'dashboard':
+        return (
+          <>
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h4" component="h1" gutterBottom>
+                Welcome, {user?.name}!
+              </Typography>
+              <Typography variant="subtitle1" color="text.secondary">
+                Manage your university life efficiently
+              </Typography>
+            </Box>
 
-      <Grid container spacing={3}>
-        {/* Interactive Campus Map Section */}
-        <Grid item xs={12}>
-          <CampusMap />
-        </Grid>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 3, 
+                    height: '100%',
+                    borderRadius: 2,
+                    bgcolor: '#fff'
+                  }}
+                >
+                  <Typography variant="h5" gutterBottom>
+                    Hostel & Facility Information
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" paragraph>
+                    View hostel details, room availability, and campus facilities
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    onClick={() => handleNavigation('/hostel-facility')}
+                    startIcon={<HomeIcon />}
+                    sx={{
+                      py: 1.5,
+                      bgcolor: '#4CAF50',
+                      '&:hover': {
+                        bgcolor: '#388E3C',
+                      },
+                    }}
+                  >
+                    View Hostels & Facilities
+                  </Button>
+                </Paper>
+              </Grid>
 
-        {/* Hostel & Facility Information Section */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" gutterBottom>
-              Hostel & Facility Information
-            </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              View hostel details, room availability, and campus facilities
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              onClick={() => navigate('/hostel-facility')}
-              startIcon={<HomeIcon />}
-            >
-              View Hostels & Facilities
-            </Button>
-          </Paper>
-        </Grid>
+              <Grid item xs={12} md={6}>
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 3, 
+                    height: '100%',
+                    borderRadius: 2,
+                    bgcolor: '#fff'
+                  }}
+                >
+                  <Typography variant="h5" gutterBottom>
+                    Campus Map
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" paragraph>
+                    Interactive map with building information and navigation
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    onClick={() => handleNavigation('/map')}
+                    startIcon={<MapIcon />}
+                    sx={{
+                      py: 1.5,
+                      bgcolor: '#4CAF50',
+                      '&:hover': {
+                        bgcolor: '#388E3C',
+                      },
+                    }}
+                  >
+                    Open Campus Map
+                  </Button>
+                </Paper>
+              </Grid>
 
-        {/* Mess Management Section */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" gutterBottom>
-              Mess Management
-            </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              Manage your mess preferences and view meal schedules
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              onClick={() => navigate('/mess')}
-              startIcon={<RestaurantIcon />}
-            >
-              Go to Mess Management
-            </Button>
-          </Paper>
-        </Grid>
+              <Grid item xs={12} md={6}>
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 3, 
+                    height: '100%',
+                    borderRadius: 2,
+                    bgcolor: '#fff'
+                  }}
+                >
+                  <Typography variant="h5" gutterBottom>
+                    Mess Management
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" paragraph>
+                    Manage your mess preferences and view meal schedules
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    onClick={() => handleNavigation('/mess')}
+                    startIcon={<RestaurantIcon />}
+                    sx={{
+                      py: 1.5,
+                      bgcolor: '#4CAF50',
+                      '&:hover': {
+                        bgcolor: '#388E3C',
+                      },
+                    }}
+                  >
+                    Go to Mess Management
+                  </Button>
+                </Paper>
+              </Grid>
 
-        {/* Lost and Found Section */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" gutterBottom>
-              Lost and Found
-            </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              Report lost items or search for found items
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              onClick={() => navigate('/lost-and-found')}
-              startIcon={<SearchIcon />}
-            >
-              Go to Lost and Found
-            </Button>
-          </Paper>
-        </Grid>
+              <Grid item xs={12} md={6}>
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 3, 
+                    height: '100%',
+                    borderRadius: 2,
+                    bgcolor: '#fff'
+                  }}
+                >
+                  <Typography variant="h5" gutterBottom>
+                    Lost and Found
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" paragraph>
+                    Report lost items or search for found items
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    onClick={() => handleNavigation('/lost-and-found')}
+                    startIcon={<SearchIcon />}
+                    sx={{
+                      py: 1.5,
+                      bgcolor: '#4CAF50',
+                      '&:hover': {
+                        bgcolor: '#388E3C',
+                      },
+                    }}
+                  >
+                    Go to Lost and Found
+                  </Button>
+                </Paper>
+              </Grid>
 
-        {/* Feedback & Tracking Section */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" gutterBottom>
-              Feedback & Tracking
-            </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              Submit feedback, complaints, and track their status
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              onClick={() => navigate('/feedback')}
-              startIcon={<FeedbackIcon />}
-            >
-              Feedback & Tracking
-            </Button>
-          </Paper>
-        </Grid>
+              <Grid item xs={12} md={6}>
+                <Paper 
+                  elevation={0}
+                  sx={{ 
+                    p: 3, 
+                    height: '100%',
+                    borderRadius: 2,
+                    bgcolor: '#fff'
+                  }}
+                >
+                  <Typography variant="h5" gutterBottom>
+                    Feedback & Tracking
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" paragraph>
+                    Submit feedback, complaints, and track their status
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    onClick={() => handleNavigation('/feedback')}
+                    startIcon={<FeedbackIcon />}
+                    sx={{
+                      py: 1.5,
+                      bgcolor: '#4CAF50',
+                      '&:hover': {
+                        bgcolor: '#388E3C',
+                      },
+                    }}
+                  >
+                    Feedback & Tracking
+                  </Button>
+                </Paper>
+              </Grid>
+            </Grid>
+          </>
+        );
+      
+      case 'hostel-facility':
+        return <HostelFacility />;
 
-        {/* Profile Section */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" gutterBottom>
-              Profile Settings
-            </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              Update your profile information and preferences
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              onClick={() => navigate('/profile')}
-              startIcon={<PersonIcon />}
-            >
-              Manage Profile
-            </Button>
-          </Paper>
-        </Grid>
+      case 'mess':
+        return <MessManagement />;
 
-        {/* Logout Button */}
-        <Grid item xs={12} md={6}>
-          <Paper elevation={3} sx={{ p: 3, height: '100%' }}>
-            <Typography variant="h5" gutterBottom>
-              Account
+      case 'lost-and-found':
+        return <LostAndFound />;
+
+      case 'feedback':
+        return <Feedback />;
+
+      case 'map':
+        return <CampusMap />;
+
+      case 'profile':
+        return <Profile />;
+
+      case 'settings':
+        return (
+          <Box>
+            <Typography variant="h4" gutterBottom>
+              Settings
             </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              Manage your account settings and logout
-            </Typography>
-            <Button
-              variant="contained"
-              color="error"
-              fullWidth
-              onClick={() => navigate('/logout')}
-              startIcon={<LogoutIcon />}
-            >
-              Logout
-            </Button>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Container>
-  );
+            {/* Add your settings content here */}
+          </Box>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return renderContent();
 };
 
 export default Dashboard; 

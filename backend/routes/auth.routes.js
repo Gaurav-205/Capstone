@@ -35,7 +35,7 @@ router.get(
   '/google/callback',
   passport.authenticate('google', { 
     session: false, 
-    failureRedirect: 'https://ulifee.netlify.app/login?error=google_auth_failed' 
+    failureRedirect: `${process.env.FRONTEND_URL}/login?error=google_auth_failed`
   }),
   (req, res) => {
     try {
@@ -43,16 +43,16 @@ router.get(
       
       if (!req.user) {
         console.error('No user found in request');
-        return res.redirect('https://ulifee.netlify.app/login?error=no_user_found');
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=no_user_found`);
       }
 
       // Generate JWT token
       const token = jwt.sign({ id: req.user._id }, process.env.JWT_SECRET, {
-        expiresIn: '7d'
+        expiresIn: process.env.JWT_EXPIRE
       });
 
       // Create redirect URL without double slashes
-      const redirectURL = new URL('https://ulifee.netlify.app');
+      const redirectURL = new URL(process.env.FRONTEND_URL);
       redirectURL.pathname = 'auth/callback';  // No leading slash to prevent double slash
       redirectURL.searchParams.append('token', token);
       redirectURL.searchParams.append('needsPassword', req.user.needsPassword);
@@ -61,7 +61,7 @@ router.get(
       res.redirect(redirectURL.toString());
     } catch (error) {
       console.error('Auth callback error:', error);
-      res.redirect('https://ulifee.netlify.app/login?error=auth_failed');
+      res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
     }
   }
 );

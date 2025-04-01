@@ -6,6 +6,7 @@ interface User {
   name: string;
   email: string;
   googleId?: string;
+  avatar?: string;
 }
 
 interface AuthResponse {
@@ -14,6 +15,7 @@ interface AuthResponse {
     name: string;
     email: string;
     googleId?: string;
+    avatar?: string;
   };
 }
 
@@ -22,6 +24,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   handleAuthCallback: (token: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,6 +32,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   error: null,
   handleAuthCallback: async () => {},
+  logout: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -49,7 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           _id: response.user.id,
           name: response.user.name,
           email: response.user.email,
-          googleId: response.user.googleId
+          googleId: response.user.googleId,
+          avatar: response.user.avatar
         };
         setUser(userData);
       }
@@ -62,6 +67,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw error;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      localStorage.removeItem('token');
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
@@ -83,7 +97,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             _id: response.user.id,
             name: response.user.name,
             email: response.user.email,
-            googleId: response.user.googleId
+            googleId: response.user.googleId,
+            avatar: response.user.avatar
           };
           setUser(userData);
         }
@@ -103,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, handleAuthCallback }}>
+    <AuthContext.Provider value={{ user, loading, error, handleAuthCallback, logout }}>
       {children}
     </AuthContext.Provider>
   );

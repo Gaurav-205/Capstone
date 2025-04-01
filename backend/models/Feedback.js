@@ -75,6 +75,14 @@ const feedbackSchema = new mongoose.Schema({
     },
     comment: String
   },
+  scheduledCloseDate: {
+    type: Date,
+    default: null
+  },
+  scheduledDeletionDate: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -102,6 +110,12 @@ feedbackSchema.pre('save', async function(next) {
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const count = await this.constructor.countDocuments();
     this.referenceNumber = `FB${year}${month}${(count + 1).toString().padStart(4, '0')}`;
+  }
+
+  // Set scheduled close and deletion dates when feedback is resolved
+  if (this.isModified('status') && this.status === 'resolved') {
+    this.scheduledCloseDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+    this.scheduledDeletionDate = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000); // 4 days from now (1 day for closing + 3 days until deletion)
   }
 
   this.updatedAt = Date.now();

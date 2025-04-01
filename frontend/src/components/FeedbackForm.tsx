@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import feedbackService, { CreateFeedbackData } from '../services/feedbackService';
+import feedbackService, { CreateFeedbackData, Feedback as FeedbackType } from '../services/feedbackService';
 import { 
   Snackbar, 
   Alert, 
@@ -20,19 +20,25 @@ import {
   ImageList,
   ImageListItem,
   Container,
-  Paper
+  Paper,
+  CircularProgress
 } from '@mui/material';
-import { CloudUpload as CloudUploadIcon, Close as CloseIcon } from '@mui/icons-material';
+import { CloudUpload as CloudUploadIcon, Close as CloseIcon, Send as SendIcon } from '@mui/icons-material';
 
 interface AttachmentWithPreview extends File {
   preview?: string;
 }
 
-const FeedbackForm: React.FC = () => {
+interface FeedbackFormProps {
+  feedbackToEdit?: FeedbackType | null;
+  onSubmitSuccess?: () => void;
+}
+
+const FeedbackForm: React.FC<FeedbackFormProps> = ({ feedbackToEdit, onSubmitSuccess }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState<CreateFeedbackData>({
     type: 'feedback',
-    category: 'other',
+    category: 'academic',
     title: '',
     description: '',
     isAnonymous: false,
@@ -49,6 +55,21 @@ const FeedbackForm: React.FC = () => {
     message: '',
     severity: 'success'
   });
+
+  // Initialize form with feedback data when editing
+  useEffect(() => {
+    if (feedbackToEdit) {
+      setFormData({
+        type: feedbackToEdit.type,
+        category: feedbackToEdit.category,
+        title: feedbackToEdit.title,
+        description: feedbackToEdit.description,
+        isAnonymous: feedbackToEdit.isAnonymous,
+        priority: feedbackToEdit.priority,
+        attachments: [] // Reset attachments when editing
+      });
+    }
+  }, [feedbackToEdit]);
 
   // Clean up previews when component unmounts
   useEffect(() => {
@@ -136,19 +157,27 @@ const FeedbackForm: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await feedbackService.createFeedback(formData);
-      console.log('Feedback submitted successfully:', response);
+      let response;
+      if (feedbackToEdit) {
+        // Update existing feedback
+        response = await feedbackService.updateFeedback(feedbackToEdit._id, formData);
+        console.log('Feedback updated successfully:', response);
+      } else {
+        // Create new feedback
+        response = await feedbackService.createFeedback(formData);
+        console.log('Feedback created successfully:', response);
+      }
       
       setSnackbar({
         open: true,
-        message: 'Feedback submitted successfully!',
+        message: `Feedback ${feedbackToEdit ? 'updated' : 'submitted'} successfully!`,
         severity: 'success'
       });
       
       // Clear form data
       setFormData({
         type: 'feedback',
-        category: 'other',
+        category: 'academic',
         title: '',
         description: '',
         isAnonymous: false,
@@ -156,18 +185,21 @@ const FeedbackForm: React.FC = () => {
         attachments: []
       });
 
-      // Navigate after a short delay
-      setTimeout(() => {
-        navigate('/feedback');
-      }, 1500);
+      // Use the callback if provided, otherwise reload the page
+      if (onSubmitSuccess) {
+        setTimeout(onSubmitSuccess, 1500);
+      } else {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
     } catch (error: any) {
-      console.error('Error submitting feedback:', error);
+      console.error('Error with feedback:', error);
       
-      // Extract error message from the response
       const errorMessage = error.response?.data?.message 
         || error.response?.data?.error
         || error.message
-        || 'Failed to submit feedback. Please try again.';
+        || `Failed to ${feedbackToEdit ? 'update' : 'submit'} feedback. Please try again.`;
       
       setSnackbar({
         open: true,
@@ -187,10 +219,10 @@ const FeedbackForm: React.FC = () => {
     <Container maxWidth="md">
       <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
         <Typography variant="h4" component="h2" gutterBottom align="center">
-          Submit Feedback
+          {feedbackToEdit ? 'Edit Feedback' : 'Submit Feedback'}
         </Typography>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <FormControl fullWidth>
+          <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Type</InputLabel>
             <Select
               name="type"
@@ -199,13 +231,13 @@ const FeedbackForm: React.FC = () => {
               label="Type"
               required
             >
-              <MenuItem value="feedback">General Feedback</MenuItem>
+              <MenuItem value="feedback">Feedback</MenuItem>
               <MenuItem value="complaint">Complaint</MenuItem>
               <MenuItem value="suggestion">Suggestion</MenuItem>
             </Select>
           </FormControl>
 
-          <FormControl fullWidth>
+          <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Category</InputLabel>
             <Select
               name="category"
@@ -221,7 +253,7 @@ const FeedbackForm: React.FC = () => {
             </Select>
           </FormControl>
 
-          <FormControl fullWidth>
+          <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Priority</InputLabel>
             <Select
               name="priority"
@@ -239,165 +271,124 @@ const FeedbackForm: React.FC = () => {
 
           <TextField
             fullWidth
-            required
-            label="Title"
             name="title"
+            label="Title"
             value={formData.title}
             onChange={handleChange}
-            error={formData.title.trim() === ''}
-            helperText={formData.title.trim() === '' ? 'Title is required' : ''}
+            required
             sx={{ mb: 2 }}
           />
 
           <TextField
             fullWidth
-            required
-            multiline
-            rows={4}
-            label="Description"
             name="description"
+            label="Description"
             value={formData.description}
             onChange={handleChange}
-            error={formData.description.trim() === ''}
-            helperText={formData.description.trim() === '' ? 'Description is required' : ''}
+            multiline
+            rows={4}
+            required
             sx={{ mb: 2 }}
           />
 
           <FormControlLabel
             control={
               <Switch
-                name="isAnonymous"
                 checked={formData.isAnonymous}
                 onChange={handleSwitchChange}
+                name="isAnonymous"
               />
             }
             label="Submit Anonymously"
+            sx={{ mb: 2 }}
           />
 
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 2 }}>
             <input
               accept="image/*,.pdf,.doc,.docx"
               style={{ display: 'none' }}
-              id="file-upload"
-              multiple
+              id="attachment-button"
               type="file"
+              multiple
               onChange={handleFileChange}
             />
-            <label htmlFor="file-upload">
+            <label htmlFor="attachment-button">
               <Button
                 variant="outlined"
                 component="span"
                 startIcon={<CloudUploadIcon />}
-                fullWidth
-                sx={{ mb: 2 }}
               >
-                Upload Attachments
+                Attach Files
               </Button>
             </label>
-            {formData.attachments.length > 0 && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Attachments:
-                </Typography>
-                <ImageList cols={3} rowHeight={164} sx={{ mb: 2 }}>
-                  {formData.attachments.map((attachment, index) => {
-                    const preview = (attachment.file as AttachmentWithPreview).preview;
-                    if (preview && attachment.mimetype.startsWith('image/')) {
-                      return (
-                        <ImageListItem key={index}>
-                          <img
-                            src={preview}
-                            alt={attachment.filename}
-                            loading="lazy"
-                            style={{ height: '164px', objectFit: 'cover' }}
-                          />
-                          <IconButton
-                            size="small"
-                            onClick={() => handleRemoveAttachment(index)}
-                            sx={{
-                              position: 'absolute',
-                              right: 4,
-                              top: 4,
-                              bgcolor: 'rgba(255, 255, 255, 0.8)',
-                              '&:hover': {
-                                bgcolor: 'rgba(255, 255, 255, 0.9)',
-                              },
-                            }}
-                          >
-                            <CloseIcon />
-                          </IconButton>
-                        </ImageListItem>
-                      );
-                    }
-                    return (
-                      <Box
-                        key={index}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          p: 1,
-                          bgcolor: 'grey.100',
-                          borderRadius: 1,
-                          mb: 1
-                        }}
-                      >
-                        <Typography variant="body2" noWrap sx={{ flex: 1, mr: 1 }}>
-                          {attachment.filename}
-                        </Typography>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveAttachment(index)}
-                        >
-                          <CloseIcon />
-                        </IconButton>
-                      </Box>
-                    );
-                  })}
-                </ImageList>
-              </Box>
-            )}
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-            <Button
-              variant="outlined"
-              color="secondary"
-              fullWidth
-              onClick={() => navigate('/feedback')}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              fullWidth
-              disabled={isSubmitting}
-              sx={{ py: 1.5 }}
-            >
-              {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
-            </Button>
-          </Box>
+          {formData.attachments.length > 0 && (
+            <ImageList sx={{ width: '100%', height: 'auto', mb: 2 }} cols={3} rowHeight={164}>
+              {formData.attachments.map((attachment, index) => (
+                <ImageListItem key={index}>
+                  {attachment.file.type.startsWith('image/') ? (
+                    <img
+                      src={(attachment.file as AttachmentWithPreview).preview}
+                      alt={attachment.filename}
+                      loading="lazy"
+                      style={{ height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <Box
+                      sx={{
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        bgcolor: 'grey.100',
+                      }}
+                    >
+                      <Typography variant="body2">{attachment.filename}</Typography>
+                    </Box>
+                  )}
+                  <IconButton
+                    sx={{
+                      position: 'absolute',
+                      right: 8,
+                      top: 8,
+                      bgcolor: 'rgba(255, 255, 255, 0.7)',
+                    }}
+                    onClick={() => handleRemoveAttachment(index)}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                </ImageListItem>
+              ))}
+            </ImageList>
+          )}
+
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            disabled={isSubmitting}
+            startIcon={isSubmitting ? <CircularProgress size={20} /> : <SendIcon />}
+            fullWidth
+          >
+            {isSubmitting 
+              ? 'Submitting...' 
+              : feedbackToEdit 
+                ? 'Update Feedback' 
+                : 'Submit Feedback'
+            }
+          </Button>
         </form>
 
-        {isSubmitting && (
-          <Box sx={{ width: '100%', mt: 2 }}>
-            <LinearProgress />
-          </Box>
-        )}
-
-        <Snackbar 
-          open={snackbar.open} 
-          autoHideDuration={6000} 
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
           onClose={handleCloseSnackbar}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
-          <Alert 
-            onClose={handleCloseSnackbar} 
+          <Alert
+            onClose={handleCloseSnackbar}
             severity={snackbar.severity}
-            variant="filled"
             sx={{ width: '100%' }}
           >
             {snackbar.message}
