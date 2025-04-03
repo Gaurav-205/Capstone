@@ -1,125 +1,97 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import authService from '../services/auth.service';
-
-interface User {
-  _id: string;
-  name: string;
-  email: string;
-  googleId?: string;
-  avatar?: string;
-}
-
-interface AuthResponse {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    googleId?: string;
-    avatar?: string;
-  };
-}
+import { User } from '../types/user';
 
 interface AuthContextType {
   user: User | null;
-  loading: boolean;
-  error: string | null;
-  handleAuthCallback: (token: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  loading: true,
-  error: null,
-  handleAuthCallback: async () => {},
-  logout: async () => {},
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleAuthCallback = async (token: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await authService.handleGoogleCallback(token);
-      if (response.user) {
-        const userData: User = {
-          _id: response.user.id,
-          name: response.user.name,
-          email: response.user.email,
-          googleId: response.user.googleId,
-          avatar: response.user.avatar
-        };
-        setUser(userData);
-      }
-    } catch (error: any) {
-      console.error('Auth callback error:', error);
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Failed to handle authentication callback';
-      setError(errorMessage);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    try {
-      localStorage.removeItem('token');
-      setUser(null);
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
 
   useEffect(() => {
-    const fetchUser = async () => {
+    // Check for existing session
+    const checkAuth = async () => {
       try {
-        setLoading(true);
-        setError(null);
-        
-        const token = localStorage.getItem('token');
-        if (!token) {
-          setLoading(false);
-          return;
+        // Replace with your actual auth check logic
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          // Ensure both id and _id are present
+          if (!parsedUser._id && parsedUser.id) {
+            parsedUser._id = parsedUser.id;
+          } else if (!parsedUser.id && parsedUser._id) {
+            parsedUser.id = parsedUser._id;
+          }
+          setUser(parsedUser);
         }
-
-        const response = await authService.getCurrentUser() as AuthResponse;
-        if (response.user) {
-          const userData: User = {
-            _id: response.user.id,
-            name: response.user.name,
-            email: response.user.email,
-            googleId: response.user.googleId,
-            avatar: response.user.avatar
-          };
-          setUser(userData);
-        }
-      } catch (error: any) {
-        console.error('Fetch user error:', error);
-        const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Failed to fetch user data';
-        setError(errorMessage);
-        localStorage.removeItem('token');
+      } catch (error) {
+        console.error('Auth check failed:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUser();
+    checkAuth();
   }, []);
 
+  const login = async (email: string, password: string) => {
+    try {
+      // Replace with your actual login logic
+      const mockUser: User = {
+        id: '1',
+        _id: '1', // Ensure both id and _id are the same
+        email,
+        name: 'Test User',
+        role: 'user',
+        avatar: undefined,
+        phone: '',
+        dateOfBirth: '',
+        gender: '',
+      };
+      
+      setUser(mockUser);
+      localStorage.setItem('user', JSON.stringify(mockUser));
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      // Replace with your actual logout logic
+      setUser(null);
+      localStorage.removeItem('user');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      throw error;
+    }
+  };
+
+  const value = {
+    user,
+    login,
+    logout,
+    loading,
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, error, handleAuthCallback, logout }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 }; 

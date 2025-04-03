@@ -8,13 +8,17 @@ const {
   updateFacilityStatus,
   createFacility,
   updateFacility,
-  deleteFacility
+  deleteFacility,
+  getStatistics
 } = require('../controllers/facilityController');
+
+// Get facility statistics (must be before parameterized routes)
+router.get('/statistics', isAuthenticated, getStatistics);
 
 // Public routes
 router.get('/', getAllFacilities);
-router.get('/:id', getFacilityById);
 router.get('/type/:type', getFacilitiesByType);
+router.get('/:id', getFacilityById);
 
 // Protected routes (require authentication)
 router.put('/:id/status', isAuthenticated, updateFacilityStatus);

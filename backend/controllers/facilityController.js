@@ -95,4 +95,42 @@ exports.deleteFacility = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error deleting facility', error: error.message });
   }
+};
+
+// Get facility statistics
+exports.getStatistics = async (req, res) => {
+  try {
+    const stats = await Facility.aggregate([
+      {
+        $facet: {
+          'total': [{ $count: 'count' }],
+          'available': [
+            { $match: { 'status': 'available' } },
+            { $count: 'count' }
+          ],
+          'inUse': [
+            { $match: { 'status': 'in_use' } },
+            { $count: 'count' }
+          ]
+        }
+      }
+    ]);
+
+    const total = stats[0].total[0]?.count || 0;
+    const available = stats[0].available[0]?.count || 0;
+    const inUse = stats[0].inUse[0]?.count || 0;
+
+    const result = {
+      data: {
+        total: total,
+        available: available,
+        utilization: total > 0 ? Math.round((inUse / total) * 100) : 0
+      }
+    };
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error getting facility statistics:', error);
+    res.status(500).json({ message: 'Error fetching facility statistics' });
+  }
 }; 

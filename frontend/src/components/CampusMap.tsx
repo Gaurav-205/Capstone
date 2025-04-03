@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import ReactMapGL, { 
   Marker, 
   Popup, 
@@ -6,7 +6,10 @@ import ReactMapGL, {
   FullscreenControl, 
   GeolocateControl,
   MapLayerMouseEvent,
-  ViewStateChangeEvent
+  ViewStateChangeEvent,
+  Source,
+  Layer,
+  MapRef
 } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
@@ -18,6 +21,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   Button,
   List,
@@ -79,15 +83,35 @@ import {
   Navigation,
   Announcement,
   Event,
+  CheckCircle,
+  Cancel,
+  TheaterComedy,
+  Museum,
+  Church,
+  SportsTennis,
+  AccountBalance,
+  History,
+  AdminPanelSettings,
+  LocalCafe,
+  Park,
 } from '@mui/icons-material';
 import { Theme } from '@mui/material/styles';
 import { SxProps } from '@mui/system';
+import { Location as MapLocation, ViewState as MapViewState, RouteInfo as MapRouteInfo, TravelMode as MapTravelMode } from '../types/map';
+import {
+  clusterMarkers,
+  filterVisibleMarkers,
+  memoizeMarkerData,
+  monitorMarkerPerformance,
+  lazyLoadMarkerDetails
+} from '../utils/markerOptimization';
+import mapboxgl from 'mapbox-gl';
 
 // Use the Mapbox token from environment variables
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN || '';
 
 // Campus center coordinates (MIT World Peace Dome)
-const CAMPUS_CENTER = {
+const CAMPUS_CENTER: MapViewState = {
   latitude: 18.492605418784578,
   longitude: 74.02563567382958,
   zoom: 16.5,
@@ -104,81 +128,21 @@ const MAP_STYLES = [
   { id: 'outdoors-v12', name: 'Outdoors' },
 ];
 
-interface Location {
-  id: string;
-  name: string;
-  type: string;
-  coordinates: [number, number];
-  description: string;
-  icon: React.ReactNode;
-  details: {
-    contact: {
-      phone: string;
-      email: string;
-      website?: string;
-    };
-    timings: string;
-    facilities: string[];
-    images?: string[];
-    rating?: number;
-    reviews?: number;
-    capacity?: number;
-    accessibility?: string[];
-    events?: {
-      name: string;
-      date: string;
-      description: string;
-    }[];
-    staff?: {
-      name: string;
-      role: string;
-      contact: string;
-    }[];
-  };
-}
-
 // Enhanced locations data for MIT ADT University
-const locations: Location[] = [
-  {
-    id: 'world-peace-dome',
-    name: 'MIT World Peace Dome',
-    type: 'landmark',
-    coordinates: [74.02563567382958, 18.492605418784578],
-    description: 'The World Peace Dome at MIT ADT University - A symbol of harmony and global unity',
-    icon: <School />,
-    details: {
-      contact: {
-        phone: '+91-20-3027-4000',
-        email: 'info@mituniversity.edu.in',
-        website: 'www.mituniversity.edu.in'
-      },
-      timings: '9:00 AM - 6:00 PM',
-      facilities: [
-        'Exhibition Space',
-        'Conference Hall',
-        'Meditation Area',
-        'Peace Library',
-        'Cultural Center'
-      ],
-      rating: 4.8,
-      reviews: 150,
-      capacity: 1000
-    }
-  }
-];
+const locations: MapLocation[] = [];
 
 // Update location types with more categories
 const LOCATION_TYPES = [
-  { type: 'academic', label: 'Academic Buildings', icon: <School />, color: '#1976d2' },
-  { type: 'library', label: 'Library', icon: <LocalLibrary />, color: '#2196f3' },
-  { type: 'sports', label: 'Sports Facilities', icon: <SportsSoccer />, color: '#4caf50' },
-  { type: 'food', label: 'Food & Dining', icon: <Restaurant />, color: '#ff9800' },
-  { type: 'hostel', label: 'Hostels', icon: <Home />, color: '#795548' },
-  { type: 'medical', label: 'Medical Center', icon: <LocalHospital />, color: '#f44336' },
-  { type: 'parking', label: 'Parking Areas', icon: <LocalParking />, color: '#607d8b' },
-  { type: 'landmark', label: 'Landmarks', icon: <LocationOn />, color: '#9c27b0' },
-  { type: 'lab', label: 'Laboratories', icon: <Science />, color: '#00bcd4' },
-  { type: 'admin', label: 'Administrative', icon: <Business />, color: '#3f51b5' }
+  { type: 'academic', label: 'Academic Buildings', icon: <School />, color: '#4A148C' }, // deep-purple-900
+  { type: 'library', label: 'Library', icon: <LocalLibrary />, color: '#6A1B9A' }, // purple-900
+  { type: 'sports', label: 'Sports Facilities', icon: <SportsSoccer />, color: '#880E4F' }, // pink-900
+  { type: 'food', label: 'Food & Dining', icon: <Restaurant />, color: '#C2185B' }, // pink-700
+  { type: 'hostel', label: 'Hostels', icon: <Home />, color: '#AD1457' }, // pink-800
+  { type: 'medical', label: 'Medical Center', icon: <LocalHospital />, color: '#D81B60' }, // pink-600
+  { type: 'parking', label: 'Parking Areas', icon: <LocalParking />, color: '#E91E63' }, // pink-500
+  { type: 'landmark', label: 'Landmarks', icon: <LocationOn />, color: '#5E35B1' }, // deep-purple-600
+  { type: 'lab', label: 'Laboratories', icon: <Science />, color: '#673AB7' }, // deep-purple-500
+  { type: 'admin', label: 'Administrative', icon: <Business />, color: '#7E57C2' } // deep-purple-400
 ];
 
 interface RouteInfo {
@@ -195,7 +159,6 @@ interface ViewState {
   zoom: number;
   bearing: number;
   pitch: number;
-  padding: { top: number; bottom: number; left: number; right: number };
 }
 
 interface TravelMode {
@@ -205,25 +168,19 @@ interface TravelMode {
   speed: number; // km/h
 }
 
-const TRAVEL_MODES: TravelMode[] = [
-  { id: 'walking', label: 'Walking', icon: <DirectionsWalk />, speed: 4 },
-  { id: 'cycling', label: 'Cycling', icon: <DirectionsBike />, speed: 12 },
-  { id: 'driving', label: 'Driving', icon: <DirectionsCar />, speed: 30 }
-];
-
 const CampusMap: React.FC = () => {
-  const [viewState, setViewState] = useState(CAMPUS_CENTER);
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
+  const [viewState, setViewState] = useState<MapViewState>(CAMPUS_CENTER);
+  const [selectedLocation, setSelectedLocation] = useState<MapLocation | null>(null);
+  const [showDetails, setShowDetails] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [mapStyle, setMapStyle] = useState('streets-v12');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [route, setRoute] = useState<RouteInfo | null>(null);
-  const [routeStart, setRouteStart] = useState<Location | null>(null);
-  const [routeEnd, setRouteEnd] = useState<Location | null>(null);
+  const [route, setRoute] = useState<MapRouteInfo | null>(null);
+  const [routeStart, setRouteStart] = useState<MapLocation | null>(null);
+  const [routeEnd, setRouteEnd] = useState<MapLocation | null>(null);
   const [visibleTypes, setVisibleTypes] = useState<string[]>(
     LOCATION_TYPES.map(type => type.type)
   );
@@ -231,39 +188,116 @@ const CampusMap: React.FC = () => {
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
   const [selectedMode, setSelectedMode] = useState<string>('walking');
-  const [favoriteRoutes, setFavoriteRoutes] = useState<Array<{start: Location; end: Location}>>([]);
+  const [favoriteRoutes, setFavoriteRoutes] = useState<Array<{start: MapLocation; end: MapLocation}>>([]);
   const [estimatedArrival, setEstimatedArrival] = useState<string>('');
   const [loadingType, setLoadingType] = useState<string | null>(null);
+  const [markerCache] = useState(() => memoizeMarkerData(locations));
+  const mapRef = useRef<MapRef>(null);
+  const updateTimeoutRef = useRef<NodeJS.Timeout>();
+  const performanceMonitorRef = useRef<{ end: () => number }>();
+
+  // Memoize static data inside component
+  const memoizedMapStyles = useMemo(() => MAP_STYLES, []);
+  
+  const memoizedTravelModes = useMemo(() => [
+    { id: 'walk', label: 'Walk', icon: <DirectionsWalk />, speed: 5 },
+    { id: 'bike', label: 'Bike', icon: <DirectionsBike />, speed: 15 },
+    { id: 'car', label: 'Car', icon: <DirectionsCar />, speed: 40 },
+  ], []);
+
+  // Memoize route layer
+  const routeLayer = useMemo(() => ({
+    id: 'route',
+    type: 'line',
+    layout: {
+      'line-join': 'round',
+      'line-cap': 'round',
+    },
+    paint: {
+      'line-color': '#3884ff',
+      'line-width': 4,
+    },
+  }), []);
 
   // Filter locations based on search and type
-  const filteredLocations = locations.filter(location => {
-    const matchesSearch = location.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         location.description.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredLocations = useMemo(() => {
+    return locations.filter(location => {
+      const matchesSearch = location.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = selectedType === 'all' || location.type === selectedType;
-    const isVisible = visibleTypes.includes(location.type);
-    return matchesSearch && matchesType && isVisible;
+      return matchesSearch && matchesType;
   });
+  }, [locations, searchQuery, selectedType]);
 
   // Handle type filter with correct type
-  const handleTypeChange = (event: SelectChangeEvent<string>) => {
+  const handleTypeChange = useCallback((event: SelectChangeEvent<string>) => {
     setSelectedType(event.target.value);
-  };
+  }, []);
 
   // Handle map move with correct type
   const handleMapMove = useCallback((evt: ViewStateChangeEvent) => {
-    setViewState(evt.viewState);
+    const { latitude, longitude, zoom, bearing, pitch } = evt.viewState;
+    setViewState({ latitude, longitude, zoom, bearing, pitch });
   }, []);
 
-  // Handle marker click with correct type
-  const handleMarkerClick = useCallback((e: MapLayerMouseEvent, location: Location) => {
-    e.originalEvent.stopPropagation();
-    setSelectedLocation(location);
+  // Optimized marker rendering
+  const visibleMarkers = useMemo(() => {
+    if (!mapRef.current) return [];
+
+    try {
+      const map = mapRef.current.getMap();
+      const viewport = {
+        north: viewState.latitude + 0.02,
+        south: viewState.latitude - 0.02,
+        east: viewState.longitude + 0.02,
+        west: viewState.longitude - 0.02
+      };
+      
+      // Start performance monitoring
+      performanceMonitorRef.current = monitorMarkerPerformance(locations.length);
+      
+      // Filter and cluster markers
+      const filtered = filterVisibleMarkers(locations, viewport, viewState.zoom);
+      const clustered = clusterMarkers(filtered, viewport, viewState.zoom);
+      
+      return clustered;
+    } catch (error) {
+      console.error('Error getting map bounds:', error);
+      return [];
+    }
+  }, [locations, viewState.zoom, viewState.latitude, viewState.longitude]);
+
+  // Debounced viewport update
+  const handleViewStateChange = useCallback((event: ViewStateChangeEvent) => {
+    setViewState(event.viewState);
+    
+    // Clear existing timeout
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+    
+    // Set new timeout for marker update
+    updateTimeoutRef.current = setTimeout(() => {
+      // End performance monitoring
+      if (performanceMonitorRef.current) {
+        performanceMonitorRef.current.end();
+      }
+    }, 100);
   }, []);
+
+  // Lazy load marker details
+  const handleMarkerClick = useCallback(async (marker: MapLocation) => {
+    if (!marker.details) {
+      const updatedMarker = await lazyLoadMarkerDetails(marker);
+      markerCache.set(updatedMarker.id, updatedMarker);
+    }
+    setSelectedLocation(marker);
+    setShowDetails(true);
+  }, [markerCache]);
 
   // Handle search
-  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearch = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
-  };
+  }, []);
 
   // Handle map style change
   const handleStyleChange = useCallback((event: React.MouseEvent<HTMLElement>, newStyle: string | null) => {
@@ -273,7 +307,7 @@ const CampusMap: React.FC = () => {
   }, []);
 
   // Calculate route between locations
-  const calculateRoute = async (start: Location, end: Location) => {
+  const calculateRoute = async (start: MapLocation, end: MapLocation) => {
     setIsLoading(true);
     try {
       const response = await fetch(
@@ -313,7 +347,7 @@ const CampusMap: React.FC = () => {
   }, []);
 
   // Add effect to reset view on component mount
-  React.useEffect(() => {
+  useEffect(() => {
     resetView();
   }, [resetView]);
 
@@ -356,9 +390,42 @@ const CampusMap: React.FC = () => {
   });
 
   // Add this near other handlers
-  const handleMapClick = useCallback((e: MapLayerMouseEvent) => {
+  const handleMapClick = useCallback(() => {
     setSelectedLocation(null);
   }, []);
+
+  // Handle show details with correct event type
+  const handleShowDetails = (location: MapLocation, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedLocation(location);
+    setShowDetails(true);
+  };
+
+  const handleCloseDetails = () => {
+    setShowDetails(false);
+  };
+
+  // Add passive scroll listener
+  useEffect(() => {
+    const options = { passive: true };
+    const handleScroll = () => {
+      // Scroll handling logic
+    };
+
+    window.addEventListener('scroll', handleScroll, options);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+      markerCache.clear();
+    };
+  }, [markerCache]);
 
   return (
     <Box 
@@ -368,7 +435,7 @@ const CampusMap: React.FC = () => {
         left: 0,
         right: 0,
         bottom: 0,
-        bgcolor: '#f8fafc',
+        bgcolor: '#F3E5F5', // purple-50
         overflow: 'hidden',
         display: 'flex',
         gap: 0
@@ -381,7 +448,7 @@ const CampusMap: React.FC = () => {
           width: '280px',
           height: '100%',
           bgcolor: '#ffffff',
-          borderRight: '1px solid #e5e7eb',
+          borderRight: '1px solid #E1BEE7', // purple-100
           display: 'flex',
           flexDirection: 'column',
           p: 2,
@@ -398,9 +465,9 @@ const CampusMap: React.FC = () => {
           mb: 3,
           pl: 1
         }}>
-          <LocationOn sx={{ color: 'primary.main', fontSize: 28 }} />
+          <LocationOn sx={{ color: '#4A148C', fontSize: 28 }} /> {/* deep-purple-900 */}
           <Typography variant="h6" sx={{ 
-            color: '#1e293b',
+            color: '#4A148C', // deep-purple-900
             fontWeight: 600,
             fontSize: '1.25rem'
           }}>
@@ -418,23 +485,23 @@ const CampusMap: React.FC = () => {
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <Search sx={{ color: '#64748b', fontSize: 20 }} />
+                <Search sx={{ color: '#7E57C2' }} /> {/* deep-purple-400 */}
               </InputAdornment>
             ),
           }}
           sx={{ 
             mb: 2,
             '& .MuiOutlinedInput-root': {
-              bgcolor: '#f1f5f9',
+              bgcolor: '#F3E5F5', // purple-50
               borderRadius: '12px',
               '& fieldset': {
-                borderColor: 'transparent'
+                borderColor: '#E1BEE7' // purple-100
               },
               '&:hover fieldset': {
-                borderColor: 'transparent'
+                borderColor: '#CE93D8' // purple-200
               },
               '&.Mui-focused fieldset': {
-                borderColor: 'primary.main'
+                borderColor: '#4A148C' // deep-purple-900
               }
             }
           }}
@@ -443,7 +510,7 @@ const CampusMap: React.FC = () => {
         {/* Quick Filters */}
         <Box sx={{ mb: 2, px: 1 }}>
           <Typography variant="subtitle2" sx={{ 
-            color: '#475569',
+            color: '#4A148C', // deep-purple-900
             fontWeight: 600,
             mb: 1.5
           }}>
@@ -549,7 +616,7 @@ const CampusMap: React.FC = () => {
                   size="small"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setShowDetails(true);
+                    handleShowDetails(location, e);
                   }}
                 >
                   <Info sx={{ fontSize: 20, color: '#64748b' }} />
@@ -595,7 +662,7 @@ const CampusMap: React.FC = () => {
               }
             }}
           >
-            {MAP_STYLES.map(style => (
+            {memoizedMapStyles.map(style => (
               <ToggleButton key={style.id} value={style.id}>
                 {style.name}
               </ToggleButton>
@@ -614,13 +681,15 @@ const CampusMap: React.FC = () => {
         overflow: 'hidden'
       }}>
         <ReactMapGL
+          ref={mapRef}
           {...viewState}
-          onMove={evt => setViewState(evt.viewState)}
+          onMove={handleViewStateChange}
           onClick={handleMapClick}
           style={{ width: '100%', height: '100%' }}
           mapStyle={`mapbox://styles/mapbox/${mapStyle}`}
           mapboxAccessToken={MAPBOX_TOKEN}
           attributionControl={true}
+          reuseMaps
         >
           {/* Map Controls */}
           <Box sx={{ 
@@ -634,9 +703,9 @@ const CampusMap: React.FC = () => {
             '& > div': {
               bgcolor: 'white',
               borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+              boxShadow: '0 2px 8px rgba(74, 20, 140, 0.1)', // deep-purple-900 with opacity
               '&:hover': {
-                boxShadow: '0 4px 12px rgba(0,0,0,0.12)'
+                boxShadow: '0 4px 12px rgba(74, 20, 140, 0.15)' // deep-purple-900 with opacity
               }
             }
           }}>
@@ -646,319 +715,36 @@ const CampusMap: React.FC = () => {
           </Box>
 
           {/* Markers */}
-          {filteredLocations.map(location => (
+          {visibleMarkers.map(marker => (
             <Marker
-              key={location.id}
-              longitude={location.coordinates[0]}
-              latitude={location.coordinates[1]}
-              onClick={(e) => {
-                e.originalEvent.stopPropagation();
-                setSelectedLocation(selectedLocation?.id === location.id ? null : location);
-              }}
-              anchor="bottom"
+              key={marker.id}
+              longitude={marker.coordinates[0]}
+              latitude={marker.coordinates[1]}
+              onClick={() => handleMarkerClick(marker)}
             >
               <Box
         sx={{ 
-          position: 'relative',
-                  cursor: 'pointer',
-                  zIndex: selectedLocation?.id === location.id ? 2 : 1,
-                  '&:hover': {
-                    zIndex: 2,
-                    '& .marker-label': {
-                      opacity: 1,
-                      transform: 'translateX(-50%) translateY(-8px)',
-                    },
-                    '& .marker-icon': {
-                      transform: 'scale(1.05)',
-                      borderWidth: '2.5px'
-                    },
-                    '& .marker-dot': {
-                      transform: 'translate(-50%, -50%) scale(0.6)',
-                    }
-                  }
-                }}
-              >
-                {/* Marker Label */}
-                <Box
-                  className="marker-label"
-                  sx={{
-                    position: 'absolute',
-                    bottom: '100%',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    bgcolor: 'white',
-                    color: '#1e293b',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    whiteSpace: 'nowrap',
-                    opacity: 0,
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    zIndex: 1,
-                    willChange: 'transform, opacity',
-                    transformOrigin: 'bottom center',
-                    border: '1px solid #e2e8f0',
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-                      top: '100%',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      border: '6px solid transparent',
-                      borderTopColor: 'white'
-                    }
-                  }}
-                >
-                  {location.name}
-                </Box>
-
-                {/* Marker Icon */}
-                <Box
-                  className="marker-icon"
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    bgcolor: 'white',
-                    borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '2px solid',
-                    borderColor: LOCATION_TYPES.find(t => t.type === location.type)?.color || 'primary.main',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    position: 'relative',
-                    zIndex: 2,
-                    willChange: 'transform',
-                    transformOrigin: 'center bottom',
+                  width: marker.isCluster ? 40 : 30,
+                  height: marker.isCluster ? 40 : 30,
+                  backgroundColor: marker.isCluster ? 'primary.main' : 'white',
+                  borderRadius: '50%',
+                  boxShadow: 2,
+                  cursor: 'pointer',
                     '&:hover': {
-                      transform: 'scale(1.05)',
-                      borderWidth: '2.5px'
-                    }
-                  }}
-                >
-                  {React.cloneElement(location.icon as React.ReactElement, {
-                    sx: { 
-                      fontSize: 22,
-                      color: LOCATION_TYPES.find(t => t.type === location.type)?.color,
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-                    }
-                  })}
-                </Box>
-
-                {/* Marker Dot/Pulse Effect */}
-                <Box
-                  className="marker-dot"
-          sx={{
-            position: 'absolute',
-            top: '50%',
-                    left: '50%',
-                    width: '100%',
-                    height: '100%',
-                    borderRadius: '50%',
-                    bgcolor: LOCATION_TYPES.find(t => t.type === location.type)?.color + '08',
-                    transform: 'translate(-50%, -50%) scale(0.6)',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            zIndex: 1,
-                    willChange: 'transform, opacity',
-                    '&::after': {
-                      content: '""',
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      width: '100%',
-                      height: '100%',
-                      borderRadius: '50%',
-                      bgcolor: 'inherit',
-                      animation: 'pulse 3s cubic-bezier(0.4, 0, 0.2, 1) infinite',
-                      transform: 'translate(-50%, -50%)'
-                    }
-                  }}
-                />
-
-                {/* Quick Info Tooltip */}
-                {selectedLocation?.id === location.id && (
-                  <Grow 
-                    in={selectedLocation?.id === location.id} 
-                    timeout={{
-                      enter: 400,
-                      exit: 300
-                    }}
-                    unmountOnExit
-                  >
-                    <Paper
-                      elevation={3}
-                      onClick={(e) => e.stopPropagation()}
-                      sx={{
-                        position: 'absolute',
-                        bottom: '120%',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        width: 320,
-                        borderRadius: '16px',
-                        overflow: 'hidden',
-                        zIndex: 3,
-                        willChange: 'transform, opacity',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        bgcolor: 'rgba(255, 255, 255, 0.98)',
-            backdropFilter: 'blur(8px)',
-                        transformOrigin: 'bottom center',
-                        '&.MuiGrow-exit': {
-                          opacity: 0,
-                          transform: 'translateX(-50%) scale(0.95)',
-                        }
-                      }}
-                    >
-                      <Box sx={{ 
-                        p: 2.5,
-                        borderBottom: '1px solid rgba(0,0,0,0.06)'
-                      }}>
-                        <Typography 
-                          variant="subtitle1" 
-                          sx={{ 
-                            mb: 1, 
-                            fontWeight: 600,
-                            color: '#1e293b',
-                            fontSize: '1rem',
-                            lineHeight: 1.4
-                          }}
-                        >
-                          {location.name}
+                    transform: 'scale(1.1)',
+                    transition: 'transform 0.2s',
+                  },
+                }}
+              >
+                {marker.isCluster ? (
+                  <Typography variant="caption" color="white">
+                    {marker.clusterSize}
                         </Typography>
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
-                            color: '#64748b',
-                            mb: 2,
-                            lineHeight: 1.6,
-                            fontSize: '0.875rem'
-                          }}
-                        >
-                          {location.description.slice(0, 120)}...
-                        </Typography>
-                        
-                        {location.details.timings && (
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: 1.5, 
-                            mb: 2,
-                            py: 1,
-                            px: 1.5,
-                            bgcolor: '#f8fafc',
-                            borderRadius: '8px'
-                          }}>
-                            <AccessTime sx={{ fontSize: 20, color: '#0ea5e9' }} />
-                            <Box>
-                              <Typography 
-                                variant="caption" 
-                                sx={{ 
-                                  color: '#475569',
-                                  display: 'block',
-                                  fontWeight: 500,
-                                  mb: 0.25
-                                }}
-                              >
-                                Opening Hours
-                              </Typography>
-                              <Typography 
-                                variant="body2" 
-                                sx={{ 
-                                  color: '#0f172a',
-                                  fontWeight: 500
-                                }}
-                              >
-                                {location.details.timings}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        )}
-
-                        {location.details.rating && (
-                          <Box sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: 1,
-                            mb: 1
-                          }}>
-                            <Rating 
-                              value={location.details.rating} 
-                              readOnly 
-            size="small"
-                              sx={{
-                                '& .MuiRating-iconFilled': {
-                                  color: '#f59e0b'
-                                }
-                              }}
-                            />
-                            <Typography 
-                              variant="caption" 
-            sx={{
-                                color: '#64748b',
-                                fontWeight: 500
-                              }}
-                            >
-                              {location.details.rating} ({location.details.reviews} reviews)
-                            </Typography>
-                          </Box>
-                        )}
-                      </Box>
-
-                      <Box 
-                        sx={{ 
-                          bgcolor: '#f8fafc',
-                          p: 1.5,
-                          display: 'flex',
-                          gap: 1
-                        }}
-                      >
-                        <Button
-                          size="medium"
-                          variant="outlined"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowDetails(true);
-                          }}
-                          sx={{
-                            flex: 1,
-                            textTransform: 'none',
-                            borderColor: '#e2e8f0',
-                            color: '#475569',
-                            fontWeight: 500,
-              '&:hover': {
-                              borderColor: 'primary.main',
-                              bgcolor: '#fff'
-                            }
-                          }}
-                        >
-                          More Details
-          </Button>
-          <Button
-                          size="medium"
-            variant="contained"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRouteEnd(location);
-                            if (routeStart) {
-                              calculateRoute(routeStart, location);
-                            }
-                          }}
-            sx={{
-                            flex: 1,
-                            textTransform: 'none',
-                            fontWeight: 500,
-              boxShadow: 'none',
-              '&:hover': {
-                              boxShadow: 'none',
-                              bgcolor: 'primary.dark'
-                            }
-                          }}
-                        >
-                          Get Directions
-          </Button>
-                      </Box>
-                    </Paper>
-                  </Grow>
+                ) : (
+                  marker.icon
                 )}
               </Box>
             </Marker>
@@ -973,7 +759,7 @@ const CampusMap: React.FC = () => {
           width: '320px',
             height: '100%',
           bgcolor: '#ffffff',
-          borderLeft: '1px solid #e5e7eb',
+          borderLeft: '1px solid #E1BEE7', // purple-100
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
@@ -983,10 +769,10 @@ const CampusMap: React.FC = () => {
             width: '4px'
           },
           '&::-webkit-scrollbar-track': {
-            bgcolor: 'transparent'
+            bgcolor: '#F3E5F5' // purple-50
           },
           '&::-webkit-scrollbar-thumb': {
-            bgcolor: '#cbd5e1',
+            bgcolor: '#B39DDB', // deep-purple-200
             borderRadius: '4px'
           }
         }}
@@ -1186,7 +972,7 @@ const CampusMap: React.FC = () => {
       {/* Location Details Dialog */}
       <Dialog
         open={showDetails}
-        onClose={() => setShowDetails(false)}
+        onClose={handleCloseDetails}
         maxWidth="md"
         fullWidth
         sx={{
@@ -1194,157 +980,554 @@ const CampusMap: React.FC = () => {
             margin: 2,
             maxHeight: 'calc(100vh - 64px)',
             borderRadius: '16px',
-            overflow: 'hidden'
-          },
-          '& .MuiDialogTitle-root': {
-            py: 2,
-            px: 3,
-            borderBottom: '1px solid #e5e7eb'
-          },
-          '& .MuiDialogContent-root': {
-            p: 3,
-            '&::-webkit-scrollbar': {
-              width: '4px'
-            },
-            '&::-webkit-scrollbar-track': {
-              bgcolor: 'transparent'
-            },
-            '&::-webkit-scrollbar-thumb': {
-              bgcolor: '#cbd5e1',
-              borderRadius: '4px'
-            }
-          },
-          '& .MuiDialogActions-root': {
-            px: 3,
-            py: 2,
-            borderTop: '1px solid #e5e7eb'
+            overflow: 'hidden',
+            bgcolor: '#ffffff',
+            boxShadow: '0 4px 20px rgba(74, 20, 140, 0.15)' // deep-purple-900 with opacity
           }
         }}
       >
         {selectedLocation && (
           <>
-            <DialogTitle>
+            <DialogTitle 
+              sx={{ 
+                p: 3,
+                borderBottom: '1px solid #e5e7eb'
+              }}
+            >
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {selectedLocation.icon}
-                  <Typography variant="h6">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '12px',
+                    bgcolor: LOCATION_TYPES.find(t => t.type === selectedLocation.type)?.color + '15',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {React.cloneElement(selectedLocation.icon as React.ReactElement, {
+                      sx: { 
+                        fontSize: 24,
+                        color: LOCATION_TYPES.find(t => t.type === selectedLocation.type)?.color 
+                      }
+                    })}
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
                     {selectedLocation.name}
                   </Typography>
+                    <Typography variant="subtitle2" sx={{ color: '#64748b' }}>
+                      {LOCATION_TYPES.find(t => t.type === selectedLocation.type)?.label}
+                  </Typography>
           </Box>
-                <IconButton onClick={() => setShowDetails(false)}>
+                </Box>
+                <IconButton onClick={handleCloseDetails}>
                   <Close />
                 </IconButton>
               </Box>
             </DialogTitle>
-            <DialogContent dividers>
+
+            <DialogContent sx={{ p: 3 }}>
               <Grid container spacing={3}>
                 <Grid item xs={12} md={8}>
-                  <Typography color="text.secondary" paragraph>
+                  {/* Main Content */}
+                  <Box sx={{ mb: 4 }}>
+                    <Typography variant="body1" sx={{ color: '#475569', lineHeight: 1.6 }}>
                     {selectedLocation.description}
                   </Typography>
+                  </Box>
 
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle1" gutterBottom>
+                  {/* Contact Information */}
+                  <Box sx={{ mb: 4 }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
                       Contact Information
                     </Typography>
                     <List dense>
                       <ListItem>
-                        <ListItemIcon><Phone /></ListItemIcon>
-                        <ListItemText primary={selectedLocation.details.contact.phone} />
+                        <ListItemIcon>
+                          <LocationOn />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary="Address"
+                          secondary={selectedLocation.address}
+                          sx={{ '& .MuiTypography-root': { color: '#475569' } }}
+                        />
+                      </ListItem>
+                      {selectedLocation.details?.contact && (
+                        <>
+                      <ListItem>
+                        <ListItemIcon>
+                          <Phone />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary="Reception"
+                          secondary={selectedLocation.details.contact.phone}
+                          sx={{ '& .MuiTypography-root': { color: '#475569' } }}
+                        />
                       </ListItem>
                       <ListItem>
-                        <ListItemIcon><Email /></ListItemIcon>
-                        <ListItemText primary={selectedLocation.details.contact.email} />
+                        <ListItemIcon>
+                          <Email />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary="Email"
+                          secondary={selectedLocation.details.contact.email}
+                          sx={{ '& .MuiTypography-root': { color: '#475569' } }}
+                        />
                       </ListItem>
                       {selectedLocation.details.contact.website && (
                         <ListItem>
-                          <ListItemIcon><Web /></ListItemIcon>
-                          <ListItemText primary={selectedLocation.details.contact.website} />
+                          <ListItemIcon>
+                            <Web />
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary="Website"
+                            secondary={selectedLocation.details.contact.website}
+                            sx={{ '& .MuiTypography-root': { color: '#475569' } }}
+                          />
                         </ListItem>
+                      )}
+                        </>
+                      )}
+                      {selectedLocation.details?.timings && (
+                      <ListItem>
+                        <ListItemIcon>
+                          <AccessTime />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary="Opening Hours"
+                          secondary={selectedLocation.details.timings}
+                          sx={{ '& .MuiTypography-root': { color: '#475569' } }}
+                        />
+                      </ListItem>
                       )}
                     </List>
                   </Box>
 
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle1" gutterBottom>
-                      Facilities & Amenities
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {selectedLocation.details.facilities.map((facility, index) => (
-                        <Chip
-                          key={index}
-                          label={facility}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Stack>
-                  </Box>
-
-                  {selectedLocation.details.accessibility && (
-                    <Box sx={{ mb: 3 }}>
-                      <Typography variant="subtitle1" gutterBottom>
-                        Accessibility
+                  {/* Admission Fees */}
+                  {selectedLocation.admissionFees && (
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
+                        Admission Fees
                       </Typography>
                       <List dense>
-                        {selectedLocation.details.accessibility.map((item, index) => (
-                          <ListItem key={index}>
-                            <ListItemText primary={item} />
-                          </ListItem>
-                        ))}
+                        <ListItem>
+                          <ListItemText 
+                            primary="Adults (Ages 13+)"
+                            secondary={`₹${selectedLocation.admissionFees.adult}`}
+                            sx={{ '& .MuiTypography-root': { color: '#475569' } }}
+                          />
+                        </ListItem>
+                        <ListItem>
+                          <ListItemText 
+                            primary="Children (Ages 5-12)"
+                            secondary={`₹${selectedLocation.admissionFees.child}`}
+                            sx={{ '& .MuiTypography-root': { color: '#475569' } }}
+                          />
+                        </ListItem>
+                        <ListItem>
+                          <ListItemText 
+                            primary="Infants (Below 5 years)"
+                            secondary="Free"
+                            sx={{ '& .MuiTypography-root': { color: '#475569' } }}
+                          />
+                        </ListItem>
                       </List>
                     </Box>
                   )}
 
-                  {selectedLocation.details.events && selectedLocation.details.events.length > 0 && (
-                    <Box sx={{ mb: 3 }}>
-                      <Typography variant="subtitle1" gutterBottom>
-                        Upcoming Events
+                  {/* Facilities */}
+                  <Box sx={{ mb: 4 }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
+                      Facilities & Amenities
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {selectedLocation.details?.facilities?.map((facility) => (
+                        <Chip
+                          key={facility}
+                          label={facility}
+                          sx={{ 
+                            bgcolor: '#f1f5f9',
+                            color: '#475569',
+                            '&:hover': { bgcolor: '#e2e8f0' }
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+
+                  {/* Sports Complex Features */}
+                  {selectedLocation.details?.features && (
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
+                        Complex Features
                       </Typography>
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
+                          Facility Highlights
+                      </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                          {selectedLocation.details.features.highlights.map((highlight) => (
+                            <Chip 
+                              key={highlight}
+                              label={highlight}
+                              sx={{ 
+                                bgcolor: '#fff7ed',
+                                color: '#c2410c',
+                                border: '1px solid #fed7aa',
+                                '&:hover': { bgcolor: '#ffedd5' }
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
+                          Available Amenities
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                          {selectedLocation.details.features.amenities.map((amenity) => (
+                            <Chip 
+                              key={amenity}
+                              label={amenity}
+                              sx={{ 
+                                bgcolor: '#f0fdf4',
+                                color: '#15803d',
+                                border: '1px solid #bbf7d0',
+                                '&:hover': { bgcolor: '#dcfce7' }
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* Membership Information */}
+                  {selectedLocation.details?.membership && (
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
+                        Membership & Access
+                      </Typography>
+                      <Box sx={{ mb: 3 }}>
+                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
+                          Open To
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                          {selectedLocation.details.membership.categories.map((category) => (
+                            <Chip 
+                              key={category}
+                              label={category}
+                              sx={{ 
+                                bgcolor: '#eff6ff',
+                                color: '#1d4ed8',
+                                border: '1px solid #bfdbfe',
+                                '&:hover': { bgcolor: '#dbeafe' }
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
                       <List dense>
-                        {selectedLocation.details.events.map((event, index) => (
-                          <ListItem key={index}>
-                            <ListItemText
-                              primary={event.name}
-                              secondary={`${event.date} - ${event.description}`}
+                        {selectedLocation.details.membership.access.map((access) => (
+                          <ListItem key={access.type}>
+                            <ListItemIcon>
+                              <CheckCircle sx={{ color: '#16a34a' }} />
+                            </ListItemIcon>
+                            <ListItemText 
+                              primary={access.type}
+                              secondary={access.requirements}
+                              sx={{ 
+                                '& .MuiTypography-primary': { 
+                                  color: '#475569',
+                                  fontWeight: 500
+                                },
+                                '& .MuiTypography-secondary': {
+                                  color: '#64748b'
+                                }
+                              }}
                             />
                           </ListItem>
                         ))}
                       </List>
                     </Box>
                   )}
+
+                  {/* Restaurant Specialties */}
+                  {selectedLocation?.details?.specialties && (
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
+                        Menu Highlights
+                      </Typography>
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
+                          Popular Dishes
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                          {selectedLocation.details?.specialties?.popular?.map((dish) => (
+                            <Chip 
+                              key={dish}
+                              label={dish}
+                              sx={{ 
+                                bgcolor: '#fff7ed',
+                                color: '#c2410c',
+                                border: '1px solid #fed7aa',
+                                '&:hover': { bgcolor: '#ffedd5' }
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
+                          Customer Favorites
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                          {selectedLocation.details?.specialties?.customerFavorites?.map((dish) => (
+                            <Chip 
+                              key={dish}
+                              label={dish}
+                              sx={{ 
+                                bgcolor: '#f0fdf4',
+                                color: '#15803d',
+                                border: '1px solid #bbf7d0',
+                                '&:hover': { bgcolor: '#dcfce7' }
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* Restaurant Services */}
+                  {selectedLocation?.details?.services && (
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
+                        Available Services
+                      </Typography>
+                      <List dense>
+                        {selectedLocation.details?.services?.map((service) => (
+                          <ListItem key={service.name}>
+                            <ListItemIcon>
+                              {service.available ? (
+                                <CheckCircle sx={{ color: '#16a34a' }} />
+                              ) : (
+                                <Cancel sx={{ color: '#dc2626' }} />
+                              )}
+                            </ListItemIcon>
+                            <ListItemText 
+                              primary={service.name}
+                              sx={{ 
+                                '& .MuiTypography-root': { 
+                                  color: service.available ? '#15803d' : '#dc2626',
+                                  fontWeight: 500
+                                }
+                              }}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
+
+                  {/* Events */}
+                  {selectedLocation?.details?.events && (
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
+                        Regular Events
+                      </Typography>
+                      <List dense>
+                        {selectedLocation.details?.events?.map((event) => (
+                          <ListItem key={event.name}>
+                            <ListItemText
+                              primary={event.name}
+                              secondary={`${event.date} - ${event.description}`}
+                              sx={{ '& .MuiTypography-root': { color: '#475569' } }}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Box>
+                  )}
+
+                  {/* Academic Programs */}
+                  {selectedLocation?.details?.academic && (
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
+                        Academic Programs
+                      </Typography>
+                      <Box sx={{ mb: 3 }}>
+                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
+                          Available Programs
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                          {selectedLocation.details?.academic?.programs?.map((program) => (
+                            <Chip 
+                              key={program}
+                              label={program}
+                              sx={{ 
+                                bgcolor: '#eff6ff',
+                                color: '#1d4ed8',
+                                border: '1px solid #bfdbfe',
+                                '&:hover': { bgcolor: '#dbeafe' }
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                      <Box sx={{ mb: 3 }}>
+                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
+                          Entrance Exams Accepted
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                          {selectedLocation.details?.academic?.entranceExams?.map((exam) => (
+                            <Chip 
+                              key={exam}
+                              label={exam}
+                              sx={{ 
+                                bgcolor: '#f0fdf4',
+                                color: '#15803d',
+                                border: '1px solid #bbf7d0',
+                                '&:hover': { bgcolor: '#dcfce7' }
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
+                          Placement Highlights
+                        </Typography>
+                        <Paper 
+                          elevation={0}
+                          sx={{ 
+                            p: 2, 
+                            bgcolor: '#f8fafc',
+                            borderRadius: 2
+                          }}
+                        >
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="subtitle2" sx={{ color: '#475569', mb: 0.5 }}>
+                                Placement Rate
+                              </Typography>
+                              <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600 }}>
+                                {selectedLocation.details?.academic?.placement?.rate}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="subtitle2" sx={{ color: '#475569', mb: 0.5 }}>
+                                Highest Package
+                              </Typography>
+                              <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600 }}>
+                                {selectedLocation.details?.academic?.placement?.highestPackage}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                              <Typography variant="subtitle2" sx={{ color: '#475569', mb: 0.5 }}>
+                                Average Package
+                              </Typography>
+                              <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600 }}>
+                                {selectedLocation.details?.academic?.placement?.averagePackage}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={12}>
+                              <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1 }}>
+                                Top Recruiters
+                              </Typography>
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {selectedLocation.details?.academic?.placement?.topRecruiters?.map((recruiter) => (
+                                  <Chip 
+                                    key={recruiter}
+                                    label={recruiter}
+                                    size="small"
+                                    sx={{ 
+                                      bgcolor: '#fff7ed',
+                                      color: '#c2410c',
+                                      border: '1px solid #fed7aa',
+                                      '&:hover': { bgcolor: '#ffedd5' }
+                                    }}
+                                  />
+                                ))}
+                              </Box>
+                            </Grid>
+                          </Grid>
+                        </Paper>
+                      </Box>
+                    </Box>
+                  )}
                 </Grid>
 
                 <Grid item xs={12} md={4}>
-                  <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Operating Hours
-                    </Typography>
+                  {/* Ratings and Reviews */}
+                  <Paper 
+                    elevation={0}
+                    sx={{ 
+                      p: 2, 
+                      mb: 3, 
+                      bgcolor: '#f8fafc',
+                      borderRadius: 2
+                    }}
+                  >
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                      <AccessTime sx={{ mr: 1, fontSize: 20 }} />
-                      <Typography variant="body2">
-                        {selectedLocation.details.timings}
+                      <Rating 
+                        value={selectedLocation?.details?.rating} 
+                        precision={0.1} 
+                        readOnly 
+                        sx={{ color: '#f59e0b' }}
+                      />
+                      <Typography 
+                        variant="body2" 
+                        sx={{ ml: 1, color: '#475569' }}
+                      >
+                        {selectedLocation?.details?.rating}
                       </Typography>
                     </Box>
-                    {selectedLocation.details.capacity && (
-                      <Typography variant="body2" color="text.secondary">
-                        Capacity: {selectedLocation.details.capacity} people
-                      </Typography>
-        )}
-      </Paper>
+                    <Typography variant="body2" sx={{ color: '#64748b' }}>
+                      Based on {selectedLocation?.details?.reviews} reviews
+                    </Typography>
+                  </Paper>
 
-                  {selectedLocation.details.staff && (
-                    <Paper variant="outlined" sx={{ p: 2 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Key Staff
+                  {/* Capacity Info */}
+                  {selectedLocation?.details?.capacity && (
+                    <Paper 
+                      elevation={0}
+                      sx={{ 
+                        p: 2, 
+                        mb: 3, 
+                        bgcolor: '#f8fafc',
+                        borderRadius: 2
+                      }}
+                    >
+                      <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1 }}>
+                        Capacity
+                      </Typography>
+                      <Typography variant="h5" sx={{ color: '#1e293b', fontWeight: 600 }}>
+                        {selectedLocation.details?.capacity?.toLocaleString()} people
+                      </Typography>
+      </Paper>
+                  )}
+
+                  {/* Accessibility Features */}
+                  {selectedLocation?.details?.accessibility && (
+                    <Paper 
+                      elevation={0}
+                      sx={{ 
+                        p: 2, 
+                        bgcolor: '#f8fafc',
+                        borderRadius: 2
+                      }}
+                    >
+                      <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1 }}>
+                        Accessibility
                       </Typography>
                       <List dense>
-                        {selectedLocation.details.staff.map((person, index) => (
-                          <ListItem key={index}>
+                        {selectedLocation.details?.accessibility?.map((feature) => (
+                          <ListItem key={feature}>
                             <ListItemText
-                              primary={person.name}
-                              secondary={`${person.role} - ${person.contact}`}
+                              primary={feature}
+                              sx={{ '& .MuiTypography-root': { color: '#475569' } }}
                             />
                           </ListItem>
                         ))}
@@ -1354,8 +1537,41 @@ const CampusMap: React.FC = () => {
                 </Grid>
               </Grid>
             </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setShowDetails(false)}>Close</Button>
+
+            <DialogActions sx={{ p: 2, borderTop: '1px solid #e5e7eb' }}>
+              <Button 
+                variant="outlined" 
+                onClick={handleCloseDetails}
+                sx={{
+                  borderColor: '#e2e8f0',
+                  color: '#475569',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    bgcolor: 'transparent'
+                  }
+                }}
+              >
+                Close
+              </Button>
+              <Button 
+                variant="contained"
+                onClick={(e) => {
+                  handleCloseDetails();
+                  if (selectedLocation) {
+                    calculateRoute(selectedLocation, selectedLocation);
+                  }
+                }}
+                startIcon={<Navigation />}
+                sx={{
+                  boxShadow: 'none',
+                  '&:hover': {
+                    boxShadow: 'none',
+                    bgcolor: 'primary.dark'
+                  }
+                }}
+              >
+                Get Directions
+              </Button>
             </DialogActions>
           </>
         )}

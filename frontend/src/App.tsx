@@ -11,6 +11,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './layouts/MainLayout';
 import Settings from './pages/Settings';
+import NewsAndEventsPage from './pages/NewsAndEventsPage';
 
 const App: React.FC = () => {
   return (
@@ -34,6 +35,7 @@ const App: React.FC = () => {
               <Route path="/lost-and-found" element={<Dashboard section="lost-and-found" />} />
               <Route path="/feedback" element={<Dashboard section="feedback" />} />
               <Route path="/profile" element={<Dashboard section="profile" />} />
+              <Route path="/news-events" element={<NewsAndEventsPage />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Route>

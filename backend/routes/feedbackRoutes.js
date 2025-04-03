@@ -9,7 +9,8 @@ const {
   updateFeedbackStatus,
   updateFeedback,
   deleteFeedback,
-  submitResolution
+  submitResolution,
+  getStatistics
 } = require('../controllers/feedbackController');
 
 // All routes require authentication
@@ -20,6 +21,9 @@ router.post('/', upload.array('attachments', 5), createFeedback);
 
 // Get all feedback for the authenticated user
 router.get('/', getUserFeedback);
+
+// Get feedback statistics
+router.get('/statistics', getStatistics);
 
 // Get single feedback by ID
 router.get('/:id', getFeedbackById);

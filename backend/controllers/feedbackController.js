@@ -181,4 +181,35 @@ exports.submitResolution = async (req, res) => {
   }
 };
 
+exports.getStatistics = async (req, res) => {
+  try {
+    const stats = await Feedback.aggregate([
+      {
+        $facet: {
+          'total': [{ $count: 'count' }],
+          'pending': [
+            { $match: { 'status': { $in: ['pending', 'in_progress'] } } },
+            { $count: 'count' }
+          ],
+          'resolved': [
+            { $match: { 'status': 'resolved' } },
+            { $count: 'count' }
+          ]
+        }
+      }
+    ]);
+
+    const result = {
+      total: stats[0].total[0]?.count || 0,
+      pending: stats[0].pending[0]?.count || 0,
+      resolved: stats[0].resolved[0]?.count || 0
+    };
+
+    res.json({ data: result });
+  } catch (error) {
+    console.error('Error getting feedback statistics:', error);
+    res.status(500).json({ message: 'Error fetching feedback statistics' });
+  }
+};
+
 module.exports = exports; 

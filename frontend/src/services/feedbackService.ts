@@ -53,6 +53,12 @@ export interface UpdateFeedbackData extends Omit<CreateFeedbackData, 'attachment
   }>;
 }
 
+interface FeedbackStatistics {
+  pending: number;
+  total: number;
+  resolved: number;
+}
+
 const feedbackService = {
   createFeedback: async (data: CreateFeedbackData): Promise<Feedback> => {
     const formData = new FormData();
@@ -129,6 +135,28 @@ const feedbackService = {
   rateResolution: async (id: string, rating: Feedback['userRating']): Promise<Feedback> => {
     const response = await axios.post(`${API_URL}/feedback/${id}/rate`, rating);
     return response.data;
+  },
+
+  getStatistics: async (): Promise<{ data: FeedbackStatistics }> => {
+    try {
+      const response = await axios.get(`${API_URL}/feedback/statistics`);
+      return {
+        data: {
+          total: response.data?.data?.total || 0,
+          pending: response.data?.data?.pending || 0,
+          resolved: response.data?.data?.resolved || 0
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching feedback statistics:', error);
+      return {
+        data: {
+          total: 0,
+          pending: 0,
+          resolved: 0
+        }
+      };
+    }
   }
 };
 

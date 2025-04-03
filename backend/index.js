@@ -54,6 +54,7 @@ const hostelRoutes = require('./routes/hostelRoutes');
 const facilityRoutes = require('./routes/facilityRoutes');
 const lostFoundRoutes = require('./routes/lostFoundRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const eventRoutes = require('./routes/eventRoutes');
 
 // Use routes
 app.use('/api/auth', authRoutes);
@@ -61,9 +62,10 @@ app.use('/api/items', itemRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/mess', messRoutes);
 app.use('/api/hostel', hostelRoutes);
-app.use('/api/facility', facilityRoutes);
+app.use('/api/facilities', facilityRoutes);
 app.use('/api/lost-found', lostFoundRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/events', eventRoutes);
 
 // Session configuration
 app.use(session({

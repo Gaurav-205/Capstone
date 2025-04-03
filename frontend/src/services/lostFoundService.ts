@@ -204,9 +204,28 @@ export const lostFoundService = {
   },
 
   // Get statistics
-  getStatistics: async (): Promise<ApiResponse<LostFoundStats>> => {
-    const response = await axios.get(`${API_URL}/statistics`);
-    return response.data;
+  getStatistics: async (): Promise<{ data: LostFoundStats }> => {
+    try {
+      const response = await axios.get(`${API_URL}/statistics`);
+      return {
+        data: {
+          activeLostItems: response.data?.data?.activeLostItems || 0,
+          activeFoundItems: response.data?.data?.activeFoundItems || 0,
+          resolvedItems: response.data?.data?.resolvedItems || 0,
+          categoryDistribution: response.data?.data?.categoryDistribution || []
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching lost & found statistics:', error);
+      return {
+        data: {
+          activeLostItems: 0,
+          activeFoundItems: 0,
+          resolvedItems: 0,
+          categoryDistribution: []
+        }
+      };
+    }
   },
 
   // Add method to check if an item should be visible

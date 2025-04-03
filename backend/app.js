@@ -5,6 +5,7 @@ const session = require('express-session');
 const passport = require('passport');
 const lostFoundRoutes = require('./routes/lostFoundRoutes');
 const authRoutes = require('./routes/authRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 require('dotenv').config();
 
 const app = express();
@@ -49,6 +50,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ulife')
 // Routes
 app.use('/api/lost-found', lostFoundRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // 404 handler
 app.use((req, res) => {

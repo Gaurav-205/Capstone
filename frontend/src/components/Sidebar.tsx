@@ -21,6 +21,7 @@ import {
   Person as PersonIcon,
   Settings as SettingsIcon,
   Logout as LogoutIcon,
+  Event as EventIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,11 +34,14 @@ const Sidebar = () => {
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Hostel & Facilities', icon: <HomeIcon />, path: '/hostel-facility' },
+    { text: 'Hostel & Facility', icon: <HomeIcon />, path: '/hostel-facility' },
     { text: 'Campus Map', icon: <MapIcon />, path: '/map' },
     { text: 'Mess Management', icon: <RestaurantIcon />, path: '/mess' },
-    { text: 'Lost and Found', icon: <SearchIcon />, path: '/lost-and-found' },
+    { text: 'Lost & Found', icon: <SearchIcon />, path: '/lost-and-found' },
     { text: 'Feedback', icon: <FeedbackIcon />, path: '/feedback' },
+    { text: 'News & Events', icon: <EventIcon />, path: '/news-events' },
+    { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
+    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
 
   const handleLogout = () => {
@@ -171,16 +175,14 @@ const Sidebar = () => {
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Avatar 
-                src={user.avatar ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${user.avatar}` : undefined}
+                src={user?.avatar ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${user.avatar}` : undefined}
                 sx={{ 
                   width: 40, 
                   height: 40,
-                  bgcolor: theme.palette.primary.main,
-                  fontSize: '1.2rem',
-                  fontWeight: 500
+                  bgcolor: 'primary.main',
                 }}
               >
-                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
               </Avatar>
               <Box sx={{ 
                 minWidth: 0,
