@@ -9,7 +9,8 @@ import ReactMapGL, {
   ViewStateChangeEvent,
   Source,
   Layer,
-  MapRef
+  MapRef,
+  GeolocateResultEvent
 } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
@@ -112,8 +113,8 @@ const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN || '';
 
 // Campus center coordinates (MIT World Peace Dome)
 const CAMPUS_CENTER: MapViewState = {
-  latitude: 18.492605418784578,
-  longitude: 74.02563567382958,
+  latitude: 18.492462959666025,
+  longitude: 74.02553149122912,
   zoom: 16.5,
   bearing: 0,
   pitch: 0
@@ -123,13 +124,189 @@ const CAMPUS_CENTER: MapViewState = {
 const MAP_STYLES = [
   { id: 'streets-v12', name: 'Streets' },
   { id: 'satellite-v9', name: 'Satellite' },
-  { id: 'light-v11', name: 'Light' },
-  { id: 'dark-v11', name: 'Dark' },
-  { id: 'outdoors-v12', name: 'Outdoors' },
+  { id: 'dark-v11', name: 'Dark' }
 ];
 
 // Enhanced locations data for MIT ADT University
-const locations: MapLocation[] = [];
+const locations: MapLocation[] = [
+  {
+    id: 'world-peace-dome',
+    name: 'World Peace Dome',
+    type: 'landmark',
+    coordinates: [74.02553149122912, 18.492462959666025],
+    description: 'The World Peace Dome at MIT-ADT University is a magnificent architectural marvel dedicated to promoting peace and harmony.',
+    icon: <Church sx={{ color: '#5E35B1' }} />,
+    details: {
+      contact: {
+        phone: '+91 83800 23755',
+        email: 'director.wpd@worldpeacedome.in',
+        website: 'worldpeacedome.in'
+      },
+      timings: '10:00 AM - 7:00 PM',
+      facilities: [
+        'World Peace Prayer Hall',
+        'Bronze Statue Gallery',
+        'World Peace Library',
+        'Meditation Area',
+        'Conference Hall',
+        'Exhibition Space',
+        'Cultural Center'
+      ],
+      rating: 4.4,
+      reviews: 665,
+      capacity: 3000,
+      services: [
+        { name: 'Guided Tours', available: true },
+        { name: 'Prayer Services', available: true },
+        { name: 'Meditation Sessions', available: true },
+        { name: 'Library Access', available: true }
+      ]
+    },
+    address: 'Railway station, Vishwarajbaug, MIT-ADT University Campus, Solapur Rd, Loni Kalbhor, Maharashtra 412201',
+    admissionFees: {
+      adult: 100,
+      child: 50,
+      infant: 0
+    }
+  },
+  {
+    id: 'sports-complex',
+    name: 'MIT ADT Sports Complex',
+    type: 'sports',
+    coordinates: [74.02844225141602, 18.4917779125069],
+    description: 'A comprehensive sports facility offering various indoor and outdoor activities for students, faculty, and registered members.',
+    icon: <SportsSoccer sx={{ color: '#880E4F' }} />,
+    details: {
+      timings: '6:00 AM - 9:00 PM',
+      facilities: [
+        'Swimming Pool',
+        'Football Ground',
+        'Cricket Nets & Ground',
+        'Badminton Courts',
+        'Tennis Courts',
+        'Gym & Fitness Center',
+        'Running Track'
+      ],
+      rating: 4.5,
+      reviews: 99,
+      membership: {
+        categories: ['MIT ADT University students', 'Faculty', 'Registered members'],
+        access: [
+          {
+            type: 'Student Access',
+            requirements: 'Valid student ID required'
+          },
+          {
+            type: 'Faculty Access',
+            requirements: 'Faculty ID required'
+          },
+          {
+            type: 'Guest Access',
+            requirements: 'Prior approval required'
+          }
+        ]
+      },
+      features: {
+        highlights: [
+          'Olympic-sized Swimming Pool',
+          'Professional Football Ground',
+          'Multi-purpose Courts',
+          'Modern Fitness Center'
+        ],
+        amenities: [
+          'Changing Rooms',
+          'Lockers',
+          'Equipment Rental',
+          'First Aid Station',
+          'Water Dispensers'
+        ]
+      }
+    },
+    address: 'F2RJ+WFV, MAEER MIT\'S Swimming Pool, Unnamed Road, Loni Kalbhor, Maharashtra 412201'
+  },
+  {
+    id: 'serenity-restaurant',
+    name: 'Serenity - Multicuisine Restaurant',
+    type: 'food',
+    coordinates: [74.02749795999576, 18.49198394522407],
+    description: 'A vibrant multicuisine restaurant offering a diverse menu in an airy, casual dining atmosphere.',
+    icon: <Restaurant sx={{ color: '#C2185B' }} />,
+    details: {
+      timings: '9:00 AM - 10:00 PM',
+      rating: 4.1,
+      reviews: 211,
+      services: [
+        { name: 'Dine-in', available: true },
+        { name: 'Drive-through', available: true },
+        { name: 'No-contact delivery', available: true }
+      ],
+      specialties: {
+        popular: [
+          'Pizza',
+          'Steamed Dumplings (Momos)',
+          'Sandwiches',
+          'Mocktails'
+        ],
+        customerFavorites: [
+          'Paneer Dishes',
+          'Pizza Margherita',
+          'Ice Cream'
+        ],
+        ambience: [
+          'Airy Space',
+          'Casual Dining',
+          'Modern Decor'
+        ]
+      },
+      facilities: [
+        'Air Conditioning',
+        'Outdoor Seating',
+        'Private Dining Area',
+        'Wheelchair Accessible',
+        'Free Wi-Fi'
+      ]
+    },
+    address: 'MIT CAMPUS, RAJBAUG, near Vishwaraj Hospital, Loni Kalbhor, Maharashtra 412201'
+  },
+  {
+    id: 'shivaji-statue',
+    name: 'Chatrapati Shivaji Maharaj Statue',
+    type: 'landmark',
+    coordinates: [74.02539744285934, 18.49052554616454],
+    description: 'A historical and cultural landmark dedicated to the legendary Maratha ruler, Chhatrapati Shivaji Maharaj, symbolizing bravery and leadership.',
+    icon: <Museum sx={{ color: '#5E35B1' }} />,
+    details: {
+      rating: 4.8,
+      reviews: 5,
+      facilities: [
+        'Historical Monument',
+        'Cultural Heritage Site',
+        'Tourist Attraction',
+        'Open Space for Visitors'
+      ]
+    },
+    address: 'F2RG+54Q, MIT Institute of Design Rd, Loni Kalbhor, Maharashtra 412201'
+  },
+  {
+    id: 'manet-building',
+    name: 'Manet Main Building',
+    type: 'academic',
+    coordinates: [74.02417624045052, 18.49095954841968],
+    description: 'The main academic building of MIT ADT University, housing various educational facilities and administrative offices.',
+    icon: <School sx={{ color: '#4A148C' }} />,
+    details: {
+      rating: 4.9,
+      reviews: 8,
+      facilities: [
+        'Academic Block',
+        'Lecture Halls',
+        'Faculty Offices',
+        'Research & Development Area'
+      ]
+    },
+    address: 'Located within MIT ADT University Campus, Loni Kalbhor, Maharashtra 412201'
+  }
+];
 
 // Update location types with more categories
 const LOCATION_TYPES = [
@@ -241,10 +418,9 @@ const CampusMap: React.FC = () => {
 
   // Optimized marker rendering
   const visibleMarkers = useMemo(() => {
-    if (!mapRef.current) return [];
+    if (!mapRef.current) return locations; // Return all locations if map is not ready
 
     try {
-      const map = mapRef.current.getMap();
       const viewport = {
         north: viewState.latitude + 0.02,
         south: viewState.latitude - 0.02,
@@ -259,10 +435,10 @@ const CampusMap: React.FC = () => {
       const filtered = filterVisibleMarkers(locations, viewport, viewState.zoom);
       const clustered = clusterMarkers(filtered, viewport, viewState.zoom);
       
-      return clustered;
+      return clustered.length > 0 ? clustered : locations; // Return all locations if no markers are visible
     } catch (error) {
       console.error('Error getting map bounds:', error);
-      return [];
+      return locations; // Return all locations on error
     }
   }, [locations, viewState.zoom, viewState.latitude, viewState.longitude]);
 
@@ -285,14 +461,16 @@ const CampusMap: React.FC = () => {
   }, []);
 
   // Lazy load marker details
-  const handleMarkerClick = useCallback(async (marker: MapLocation) => {
-    if (!marker.details) {
-      const updatedMarker = await lazyLoadMarkerDetails(marker);
-      markerCache.set(updatedMarker.id, updatedMarker);
-    }
+  const handleMarkerClick = useCallback((marker: MapLocation) => {
     setSelectedLocation(marker);
+    setViewState({
+      ...viewState,
+      longitude: marker.coordinates[0],
+      latitude: marker.coordinates[1],
+      zoom: 18
+    });
     setShowDetails(true);
-  }, [markerCache]);
+  }, [viewState]);
 
   // Handle search
   const handleSearch = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -695,23 +873,30 @@ const CampusMap: React.FC = () => {
           <Box sx={{ 
             position: 'absolute', 
             top: '20px', 
-            right: '340px',
+            right: '20px',
             display: 'flex', 
             flexDirection: 'column', 
             gap: 1,
-            zIndex: 1,
-            '& > div': {
-              bgcolor: 'white',
-              borderRadius: '8px',
-              boxShadow: '0 2px 8px rgba(74, 20, 140, 0.1)', // deep-purple-900 with opacity
-              '&:hover': {
-                boxShadow: '0 4px 12px rgba(74, 20, 140, 0.15)' // deep-purple-900 with opacity
-              }
-            }
+            zIndex: 1
           }}>
-            <GeolocateControl position="top-right" />
-            <FullscreenControl position="top-right" />
-            <NavigationControl position="top-right" showCompass showZoom />
+            <GeolocateControl 
+              position="top-right"
+              onGeolocate={(e: GeolocateResultEvent) => {
+                console.log('User location:', e.coords);
+              }}
+              style={{ borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}
+            />
+            <FullscreenControl 
+              position="top-right"
+              style={{ borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}
+            />
+            <NavigationControl 
+              position="top-right"
+              showCompass={true}
+              showZoom={true}
+              visualizePitch={true}
+              style={{ borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}
+            />
           </Box>
 
           {/* Markers */}
@@ -720,63 +905,131 @@ const CampusMap: React.FC = () => {
               key={marker.id}
               longitude={marker.coordinates[0]}
               latitude={marker.coordinates[1]}
-              onClick={() => handleMarkerClick(marker)}
+              anchor="bottom"
             >
               <Box
-        sx={{ 
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  width: marker.isCluster ? 40 : 30,
-                  height: marker.isCluster ? 40 : 30,
-                  backgroundColor: marker.isCluster ? 'primary.main' : 'white',
-                  borderRadius: '50%',
-                  boxShadow: 2,
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMarkerClick(marker);
+                }}
+                sx={{ 
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: marker.isCluster ? 48 : 40,
+                  height: marker.isCluster ? 48 : 40,
                   cursor: 'pointer',
-                    '&:hover': {
+                  '&:hover': {
                     transform: 'scale(1.1)',
                     transition: 'transform 0.2s',
                   },
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    backgroundColor: marker.isCluster ? 'primary.main' : 'white',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                    zIndex: 1
+                  }
                 }}
               >
-                {marker.isCluster ? (
-                  <Typography variant="caption" color="white">
-                    {marker.clusterSize}
-                        </Typography>
-                ) : (
-                  marker.icon
-                )}
+                <Box sx={{ 
+                  position: 'relative',
+                  zIndex: 2,
+                  color: marker.isCluster ? 'white' : LOCATION_TYPES.find(t => t.type === marker.type)?.color,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {marker.isCluster ? (
+                    <Typography 
+                      variant="subtitle2" 
+                      sx={{ 
+                        fontWeight: 600,
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      {marker.clusterSize}
+                    </Typography>
+                  ) : (
+                    React.cloneElement(marker.icon as React.ReactElement, {
+                      sx: { 
+                        fontSize: 24,
+                        color: LOCATION_TYPES.find(t => t.type === marker.type)?.color
+                      }
+                    })
+                  )}
+                </Box>
               </Box>
             </Marker>
           ))}
         </ReactMapGL>
       </Box>
 
-      {/* Right Essential Features Panel */}
+      {/* Right Panel */}
       <Paper
         elevation={0}
-          sx={{
+        sx={{
           width: '320px',
-            height: '100%',
+          height: '100%',
           bgcolor: '#ffffff',
-          borderLeft: '1px solid #E1BEE7', // purple-100
+          borderLeft: '1px solid #E1BEE7',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
           flexShrink: 0,
-          overflowY: 'auto',
-          '&::-webkit-scrollbar': {
-            width: '4px'
-          },
-          '&::-webkit-scrollbar-track': {
-            bgcolor: '#F3E5F5' // purple-50
-          },
-          '&::-webkit-scrollbar-thumb': {
-            bgcolor: '#B39DDB', // deep-purple-200
-            borderRadius: '4px'
-          }
+          overflowY: 'auto'
         }}
       >
+        {/* Map Style Controls */}
+        <Box sx={{ p: 2, borderBottom: '1px solid #e5e7eb' }}>
+          <Typography variant="subtitle2" sx={{ 
+            color: '#475569',
+            fontWeight: 600,
+            mb: 1.5
+          }}>
+            Map Style
+          </Typography>
+          <ToggleButtonGroup
+            value={mapStyle}
+            exclusive
+            onChange={handleStyleChange}
+            orientation="vertical"
+            size="small"
+            sx={{
+              display: 'flex',
+              width: '100%',
+              '& .MuiToggleButton-root': {
+                justifyContent: 'flex-start',
+                textTransform: 'none',
+                py: 1,
+                borderRadius: '4px !important',
+                mb: 0.5,
+                border: '1px solid #e2e8f0',
+                '&.Mui-selected': {
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    bgcolor: 'primary.dark'
+                  }
+                }
+              }
+            }}
+          >
+            {MAP_STYLES.map(style => (
+              <ToggleButton key={style.id} value={style.id}>
+                {style.name}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Box>
+
         {/* Search Section */}
         <Box sx={{ p: 2, borderBottom: '1px solid #e5e7eb' }}>
           <Typography variant="h6" sx={{ 
@@ -1582,15 +1835,15 @@ const CampusMap: React.FC = () => {
         {`
           @keyframes pulse {
             0% {
-              transform: translate(-50%, -50%) scale(0.9);
-              opacity: 0.25;
+              transform: translate(-50%, -50%) scale(1);
+              opacity: 0.5;
             }
             50% {
-              transform: translate(-50%, -50%) scale(1.1);
-              opacity: 0.12;
+              transform: translate(-50%, -50%) scale(1.5);
+              opacity: 0.25;
             }
             100% {
-              transform: translate(-50%, -50%) scale(1.3);
+              transform: translate(-50%, -50%) scale(2);
               opacity: 0;
             }
           }

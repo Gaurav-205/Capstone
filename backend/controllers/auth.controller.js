@@ -76,6 +76,12 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
+    // Set admin role for specific emails
+    if (email === 'gauravkhandelwal205@gmail.com' || email === 'khandelwalgaurav566@gmail.com') {
+      user.role = 'admin';
+      await user.save();
+    }
+
     // Generate token
     const token = createToken(user._id);
 
@@ -84,9 +90,11 @@ exports.login = async (req, res) => {
       token,
       user: {
         id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
-        hasSetPassword: user.hasSetPassword
+        hasSetPassword: user.hasSetPassword,
+        role: user.role || 'user'
       }
     });
   } catch (error) {
@@ -157,7 +165,8 @@ exports.getCurrentUser = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        hasSetPassword: user.hasSetPassword
+        hasSetPassword: user.hasSetPassword,
+        role: user.role || 'user'
       }
     });
   } catch (error) {

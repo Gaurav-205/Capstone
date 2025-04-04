@@ -14,6 +14,19 @@ const userSchema = new mongoose.Schema({
     },
     unique: true
   },
+  role: {
+    type: String,
+    enum: ['admin', 'user', 'student'],
+    default: function() {
+      return (this.email === 'gauravkhandelwal205@gmail.com' || this.email === 'khandelwalgaurav566@gmail.com') ? 'admin' : 'user';
+    }
+  },
+  isAdmin: {
+    type: Boolean,
+    default: function() {
+      return (this.email === 'gauravkhandelwal205@gmail.com' || this.email === 'khandelwalgaurav566@gmail.com');
+    }
+  },
   name: {
     type: String,
     required: function() {

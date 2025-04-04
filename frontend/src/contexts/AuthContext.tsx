@@ -1,11 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types/user';
+import authService from '../services/auth.service';
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   loading: boolean;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,6 +21,14 @@ export const useAuth = () => {
   return context;
 };
 
+const normalizeUser = (user: any): User => {
+  return {
+    ...user,
+    _id: user._id || user.id,
+    id: user.id || user._id,
+  };
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,17 +37,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check for existing session
     const checkAuth = async () => {
       try {
-        // Replace with your actual auth check logic
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
           const parsedUser = JSON.parse(storedUser);
-          // Ensure both id and _id are present
-          if (!parsedUser._id && parsedUser.id) {
-            parsedUser._id = parsedUser.id;
-          } else if (!parsedUser.id && parsedUser._id) {
-            parsedUser.id = parsedUser._id;
+          setUser(normalizeUser(parsedUser));
+          // Refresh user data from server
+          try {
+            const response = await authService.getCurrentUser();
+            setUser(normalizeUser(response.user));
+          } catch (error) {
+            console.error('Failed to refresh user data:', error);
           }
-          setUser(parsedUser);
         }
       } catch (error) {
         console.error('Auth check failed:', error);
@@ -50,21 +61,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      // Replace with your actual login logic
-      const mockUser: User = {
-        id: '1',
-        _id: '1', // Ensure both id and _id are the same
-        email,
-        name: 'Test User',
-        role: 'user',
-        avatar: undefined,
-        phone: '',
-        dateOfBirth: '',
-        gender: '',
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem('user', JSON.stringify(mockUser));
+      const response = await authService.login({ email, password });
+      const normalizedUser = normalizeUser(response.user);
+      setUser(normalizedUser);
+      localStorage.setItem('user', JSON.stringify(normalizedUser));
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -73,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      // Replace with your actual logout logic
+      await authService.logout();
       setUser(null);
       localStorage.removeItem('user');
     } catch (error) {
@@ -87,6 +87,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     logout,
     loading,
+    isAuthenticated: !!user,
+    isAdmin: user?.role === 'admin',
   };
 
   return (

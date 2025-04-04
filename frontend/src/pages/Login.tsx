@@ -16,6 +16,7 @@ import {
 import { Google as GoogleIcon } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import authService, { LoginData } from '../services/auth.service';
+import { useAuth } from '../contexts/AuthContext';
 
 const schema = yup.object().shape({
   email: yup.string().email('Invalid email').required('Email is required'),
@@ -25,6 +26,7 @@ const schema = yup.object().shape({
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string>('');
+  const { login } = useAuth();
   
   const {
     register,
@@ -36,8 +38,17 @@ const Login: React.FC = () => {
 
   const onSubmit = async (data: LoginData) => {
     try {
-      await authService.login(data);
-      navigate('/dashboard');
+      await login(data.email, data.password);
+      // Check localStorage for user role after login
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user.role === 'admin') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/dashboard');
+        }
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'An error occurred');
     }

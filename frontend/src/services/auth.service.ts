@@ -12,6 +12,7 @@ export interface AuthResponse {
     name: string;
     email: string;
     hasSetPassword: boolean;
+    role?: 'admin' | 'user' | 'student';
   };
 }
 
@@ -183,7 +184,10 @@ class AuthService {
         throw new Error('Invalid response from server');
       }
       this.user = user;
-      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('user', JSON.stringify({
+        ...user,
+        role: user.role || 'user'
+      }));
       return response.data;
     } catch (error: any) {
       console.error('Get current user error:', error.response?.data || error);

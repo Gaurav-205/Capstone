@@ -33,6 +33,7 @@ export interface Location {
     specialties?: {
       popular: string[];
       customerFavorites: string[];
+      ambience: string[];
     };
     services?: {
       name: string;
