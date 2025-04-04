@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { User } from '../types/user';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3000';
@@ -116,6 +117,21 @@ class AuthService {
 
   public isAuthenticated(): boolean {
     return !!localStorage.getItem('token');
+  }
+
+  public getToken(): string | null {
+    return localStorage.getItem('token');
+  }
+
+  public getUser(): User | null {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return null;
+      return JSON.parse(userStr);
+    } catch (error) {
+      console.error('Error getting user from storage:', error);
+      return null;
+    }
   }
 
   public async getCurrentUser(): Promise<AuthResponse> {
