@@ -46,11 +46,10 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "set CI=false && set NODE_ENV=production && GENERATE_SOURCEMAP=false react-scripts build && npm run compress",
+    "build": "CI=false GENERATE_SOURCEMAP=false react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "type-check": "tsc --noEmit",
-    "compress": "gzip -9 -r build/static"
+    "type-check": "tsc --noEmit"
   },
   "eslintConfig": {
     "extends": [
@@ -73,9 +72,7 @@
   "devDependencies": {
     "@types/geojson": "^7946.0.16",
     "autoprefixer": "^10.4.17",
-    "compression-webpack-plugin": "^10.0.0",
     "postcss": "^8.4.35",
-    "tailwindcss": "^3.4.17",
-    "terser-webpack-plugin": "^5.3.10"
+    "tailwindcss": "^3.4.17"
   }
 }
