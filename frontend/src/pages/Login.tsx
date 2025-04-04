@@ -152,6 +152,7 @@ const Login: React.FC = () => {
                 {...register('password')}
                 error={!!errors.password}
                 helperText={errors.password?.message}
+                autoComplete="current-password"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     bgcolor: '#F8F9FA',
