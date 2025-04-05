@@ -1,14 +1,10 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import ReactMapGL, { 
   Marker, 
-  Popup, 
   NavigationControl, 
   FullscreenControl, 
   GeolocateControl,
-  MapLayerMouseEvent,
   ViewStateChangeEvent,
-  Source,
-  Layer,
   MapRef,
   GeolocateResultEvent
 } from 'react-map-gl';
@@ -22,7 +18,6 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogContentText,
   DialogActions,
   Button,
   List,
@@ -33,23 +28,11 @@ import {
   Stack,
   TextField,
   InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  CircularProgress,
-  Alert,
   ToggleButtonGroup,
   ToggleButton,
-  Drawer,
   Grid,
   Rating,
   SelectChangeEvent,
-  ListItemButton,
-  Collapse,
-  Fade,
-  Popper,
-  Grow,
 } from '@mui/material';
 import {
   School,
@@ -64,49 +47,29 @@ import {
   DirectionsWalk,
   DirectionsBike,
   DirectionsCar,
-  Menu as MenuIcon,
   AccessTime,
   Phone,
   Email,
   Web,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
   LocationOn,
   Home,
   Science,
   Business,
-  Star,
-  StarBorder,
-  Schedule,
-  MyLocation,
   Navigation,
   Announcement,
   Event,
   CheckCircle,
   Cancel,
-  TheaterComedy,
   Museum,
   Church,
-  SportsTennis,
-  AccountBalance,
-  History,
-  AdminPanelSettings,
-  LocalCafe,
-  Park,
 } from '@mui/icons-material';
-import { Theme } from '@mui/material/styles';
-import { SxProps } from '@mui/system';
-import { Location as MapLocation, ViewState as MapViewState, RouteInfo as MapRouteInfo, TravelMode as MapTravelMode } from '../types/map';
+import { Location as MapLocation, ViewState as MapViewState, RouteInfo as MapRouteInfo } from '../types/map';
 import {
   clusterMarkers,
   filterVisibleMarkers,
   memoizeMarkerData,
   monitorMarkerPerformance,
-  lazyLoadMarkerDetails
 } from '../utils/markerOptimization';
-import mapboxgl from 'mapbox-gl';
 
 // Use the Mapbox token from environment variables
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN || '';
@@ -115,9 +78,7 @@ const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN || '';
 const CAMPUS_CENTER: MapViewState = {
   latitude: 18.492462959666025,
   longitude: 74.02553149122912,
-  zoom: 16.5,
-  bearing: 0,
-  pitch: 0
+  zoom: 16.5
 };
 
 // Map styles

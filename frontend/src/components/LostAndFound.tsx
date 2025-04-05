@@ -5,26 +5,29 @@ import {
   Grid,
   Card,
   CardContent,
+  CardMedia,
   Button,
-  TextField,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton,
-  Stack,
-  Chip,
-  Avatar,
+  TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  InputAdornment,
-  Snackbar,
+  SelectChangeEvent,
+  CircularProgress,
   Alert,
+  Stack,
+  Chip,
+  Avatar,
+  AvatarGroup,
+  Link,
+  Snackbar,
   Tab,
   Tabs,
-  CircularProgress,
   Tooltip,
   Paper,
   Autocomplete,
@@ -35,24 +38,23 @@ import {
   Divider,
 } from '@mui/material';
 import {
-  Search,
   Add as AddIcon,
-  Close,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Close as CloseIcon,
+  Search as SearchIcon,
+  CloudUpload as CloudUploadIcon,
   LocationOn,
-  Category,
   CalendarToday,
   Person,
   Phone,
   Email,
   Description,
   Image as ImageIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
   CheckCircle,
   FilterList,
 } from '@mui/icons-material';
 import { lostFoundService, LostFoundItem, LostFoundStats } from '../services/lostFoundService';
-import { Link } from '@mui/material';
 
 interface Item {
   id: string;
@@ -154,9 +156,8 @@ const LostAndFound: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
-  const [locationFilter, setLocationFilter] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'resolved' | 'active'>('all');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'resolved' | 'active'>('all');
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
@@ -216,9 +217,9 @@ const LostAndFound: React.FC = () => {
       setError(null);
       const response = await lostFoundService.getItems({
         status: selectedTab === 1 ? 'lost' : selectedTab === 2 ? 'found' : undefined,
-        category: categoryFilter,
-        location: locationFilter,
-        isResolved: statusFilter === 'resolved' ? true : statusFilter === 'active' ? false : undefined,
+        category: selectedCategory,
+        location: '',
+        isResolved: selectedStatus === 'resolved' ? true : selectedStatus === 'active' ? false : undefined,
         search: searchQuery,
         page: currentPage,
         limit: 9
@@ -254,12 +255,10 @@ const LostAndFound: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [selectedTab, categoryFilter, locationFilter, statusFilter, searchQuery]);
-
-  useEffect(() => {
-    fetchItems();
-  }, [selectedTab, categoryFilter, locationFilter, statusFilter, searchQuery, currentPage]);
+    if (searchQuery || selectedCategory || selectedStatus) {
+      fetchItems();
+    }
+  }, [searchQuery, selectedCategory, selectedStatus]);
 
   const handleSubmit = async () => {
     if (!formData.title || !formData.category || !formData.location || !formData.contactName || !formData.contactEmail) {
@@ -341,16 +340,15 @@ const LostAndFound: React.FC = () => {
   const filteredItems = items.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = !categoryFilter || item.category === categoryFilter;
-    const matchesLocation = !locationFilter || item.location === locationFilter;
-    const matchesStatus = statusFilter === 'all' ? true :
-                         statusFilter === 'resolved' ? item.isResolved :
+    const matchesCategory = !selectedCategory || item.category === selectedCategory;
+    const matchesStatus = selectedStatus === 'all' ? true :
+                         selectedStatus === 'resolved' ? item.isResolved :
                          !item.isResolved;
     const matchesTab = selectedTab === 0 ? true :
                       selectedTab === 1 ? item.status === 'lost' :
                       item.status === 'found';
     
-    return matchesSearch && matchesCategory && matchesLocation && matchesStatus && matchesTab;
+    return matchesSearch && matchesCategory && matchesStatus && matchesTab;
   });
 
   return (
@@ -419,7 +417,7 @@ const LostAndFound: React.FC = () => {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search />
+                    <SearchIcon />
                   </InputAdornment>
                 ),
               }}
@@ -430,9 +428,9 @@ const LostAndFound: React.FC = () => {
               <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>Category</InputLabel>
                 <Select
-                  value={categoryFilter}
+                  value={selectedCategory}
                   label="Category"
-                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
                 >
                   <MenuItem value="">All</MenuItem>
                   {categories.map((category) => (
@@ -440,25 +438,12 @@ const LostAndFound: React.FC = () => {
                   ))}
                 </Select>
               </FormControl>
-              <Autocomplete
-                size="small"
-                sx={{ minWidth: 200 }}
-                freeSolo
-                options={locations}
-                value={locationFilter || null}
-                onChange={(event, newValue) => {
-                  setLocationFilter(newValue || '');
-                }}
-                renderInput={(params) => (
-                  <TextField {...params} label="Location" />
-                )}
-              />
               <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>Status</InputLabel>
                 <Select
-                  value={statusFilter}
+                  value={selectedStatus}
                   label="Status"
-                  onChange={(e) => setStatusFilter(e.target.value as 'all' | 'resolved' | 'active')}
+                  onChange={(e) => setSelectedStatus(e.target.value as 'all' | 'resolved' | 'active')}
                 >
                   <MenuItem value="all">All</MenuItem>
                   <MenuItem value="active">Active</MenuItem>
@@ -674,7 +659,7 @@ const LostAndFound: React.FC = () => {
               {selectedItem ? 'Edit Item' : 'Report New Item'}
             </Typography>
             <IconButton onClick={handleCloseDialog}>
-              <Close />
+              <CloseIcon />
             </IconButton>
           </Box>
         </DialogTitle>
@@ -803,7 +788,7 @@ const LostAndFound: React.FC = () => {
               Contact Details
             </Typography>
             <IconButton onClick={() => setSelectedContactItem(null)}>
-              <Close />
+              <CloseIcon />
             </IconButton>
           </Box>
         </DialogTitle>

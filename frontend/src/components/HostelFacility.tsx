@@ -12,17 +12,14 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
-  Rating,
   CircularProgress,
   Alert,
   Stack,
   IconButton,
-  Divider,
   Tooltip,
 } from '@mui/material';
 import {

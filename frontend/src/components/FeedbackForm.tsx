@@ -14,7 +14,6 @@ import {
   Button, 
   Box, 
   Typography, 
-  LinearProgress,
   SelectChangeEvent,
   IconButton,
   ImageList,
