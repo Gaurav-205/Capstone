@@ -17,7 +17,6 @@ import {
   DialogActions,
   Button,
   TextField,
-  MenuItem,
   Stack,
   Tooltip,
   TablePagination,
@@ -26,8 +25,6 @@ import {
   Reply as ReplyIcon,
   Delete as DeleteIcon,
   CheckCircle as ResolvedIcon,
-  Warning as PendingIcon,
-  Block as RejectedIcon,
 } from '@mui/icons-material';
 
 // Mock data - replace with actual API calls
@@ -57,15 +54,27 @@ const mockFeedback = [
   // Add more mock data as needed
 ];
 
+interface Feedback {
+  id: number;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: string;
+  date: string;
+  category: string;
+  priority: string;
+}
+
 const FeedbackManagement: React.FC = () => {
-  const [feedbackList, setFeedbackList] = useState(mockFeedback);
+  const [feedbackList, setFeedbackList] = useState<Feedback[]>(mockFeedback);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [selectedFeedback, setSelectedFeedback] = useState<any>(null);
+  const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
   const [replyDialogOpen, setReplyDialogOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
 
@@ -100,14 +109,15 @@ const FeedbackManagement: React.FC = () => {
     }
   };
 
-  const handleReplyClick = (feedback: any) => {
+  const handleReplyClick = (feedback: Feedback) => {
     setSelectedFeedback(feedback);
     setReplyDialogOpen(true);
   };
 
   const handleReplySubmit = () => {
+    if (!selectedFeedback) return;
     // Implement reply submission logic here
-    console.log('Reply submitted:', { feedbackId: selectedFeedback?.id, reply: replyText });
+    console.log('Reply submitted:', { feedbackId: selectedFeedback.id, reply: replyText });
     setReplyDialogOpen(false);
     setReplyText('');
   };
