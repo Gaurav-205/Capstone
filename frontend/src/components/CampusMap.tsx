@@ -286,25 +286,6 @@ const locations: MapLocation[] = [
       ]
     },
     address: 'F2RG+54Q, MIT Institute of Design Rd, Loni Kalbhor, Maharashtra 412201'
-  },
-  {
-    id: 'manet-building',
-    name: 'Manet Main Building',
-    type: 'academic',
-    coordinates: [74.02417624045052, 18.49095954841968],
-    description: 'The main academic building of MIT ADT University, housing various educational facilities and administrative offices.',
-    icon: <School sx={{ color: '#4A148C' }} />,
-    details: {
-      rating: 4.9,
-      reviews: 8,
-      facilities: [
-        'Academic Block',
-        'Lecture Halls',
-        'Faculty Offices',
-        'Research & Development Area'
-      ]
-    },
-    address: 'Located within MIT ADT University Campus, Loni Kalbhor, Maharashtra 412201'
   }
 ];
 
@@ -605,6 +586,72 @@ const CampusMap: React.FC = () => {
     };
   }, [markerCache]);
 
+  const renderMarkers = (): React.ReactNode => {
+    return visibleMarkers.map((location) => (
+      <Marker
+        key={location.id}
+        longitude={location.coordinates[0]}
+        latitude={location.coordinates[1]}
+        anchor="bottom"
+        onClick={(e) => {
+          e.originalEvent.stopPropagation();
+          setSelectedLocation(location);
+          setShowDetails(true);
+        }}
+      >
+        <Tooltip
+          title={location.name}
+          arrow
+          placement="top"
+          enterDelay={200}
+          leaveDelay={0}
+        >
+          <Box
+            sx={{
+              cursor: 'pointer',
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 40,
+              height: 40,
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '100%',
+                height: '100%',
+                borderRadius: '50%',
+                backgroundColor: 'white',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                zIndex: 1
+              },
+              '& svg': {
+                position: 'relative',
+                zIndex: 2,
+                fontSize: 24,
+                color: LOCATION_TYPES.find(t => t.type === location.type)?.color,
+                transition: 'all 0.2s ease-in-out',
+              },
+              '&:hover': {
+                '& svg': {
+                  transform: 'scale(1.1)',
+                },
+                '&::before': {
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                },
+              },
+            }}
+          >
+            {location.icon}
+          </Box>
+        </Tooltip>
+      </Marker>
+    ));
+  };
+
   return (
     <Box 
         sx={{
@@ -900,75 +947,7 @@ const CampusMap: React.FC = () => {
           </Box>
 
           {/* Markers */}
-          {visibleMarkers.map(marker => (
-            <Marker
-              key={marker.id}
-              longitude={marker.coordinates[0]}
-              latitude={marker.coordinates[1]}
-              anchor="bottom"
-            >
-              <Box
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleMarkerClick(marker);
-                }}
-                sx={{ 
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: marker.isCluster ? 48 : 40,
-                  height: marker.isCluster ? 48 : 40,
-                  cursor: 'pointer',
-                  '&:hover': {
-                    transform: 'scale(1.1)',
-                    transition: 'transform 0.2s',
-                  },
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: '100%',
-                    height: '100%',
-                    borderRadius: '50%',
-                    backgroundColor: marker.isCluster ? 'primary.main' : 'white',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-                    zIndex: 1
-                  }
-                }}
-              >
-                <Box sx={{ 
-                  position: 'relative',
-                  zIndex: 2,
-                  color: marker.isCluster ? 'white' : LOCATION_TYPES.find(t => t.type === marker.type)?.color,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  {marker.isCluster ? (
-                    <Typography 
-                      variant="subtitle2" 
-                      sx={{ 
-                        fontWeight: 600,
-                        fontSize: '0.875rem'
-                      }}
-                    >
-                      {marker.clusterSize}
-                    </Typography>
-                  ) : (
-                    React.cloneElement(marker.icon as React.ReactElement, {
-                      sx: { 
-                        fontSize: 24,
-                        color: LOCATION_TYPES.find(t => t.type === marker.type)?.color
-                      }
-                    })
-                  )}
-                </Box>
-              </Box>
-            </Marker>
-          ))}
+          {renderMarkers()}
         </ReactMapGL>
       </Box>
 
@@ -1062,80 +1041,6 @@ const CampusMap: React.FC = () => {
           />
         </Box>
 
-        {/* Quick Actions */}
-        <Box sx={{ p: 2, borderBottom: '1px solid #e5e7eb' }}>
-          <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1.5, fontWeight: 600 }}>
-            Quick Actions
-          </Typography>
-          <Grid container spacing={1}>
-            <Grid item xs={6}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={loadingType === 'library' ? <CircularProgress size={16} /> : <LocalLibrary />}
-                onClick={() => filterLocationsByType('library')}
-                disabled={loadingType !== null}
-                sx={quickActionButtonStyle('library')}
-              >
-                Library
-              </Button>
-            </Grid>
-            <Grid item xs={6}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={loadingType === 'food' ? <CircularProgress size={16} /> : <Restaurant />}
-                onClick={() => filterLocationsByType('food')}
-                disabled={loadingType !== null}
-                sx={quickActionButtonStyle('food')}
-              >
-                Cafeteria
-              </Button>
-            </Grid>
-            <Grid item xs={6}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={loadingType === 'sports' ? <CircularProgress size={16} /> : <SportsSoccer />}
-                onClick={() => filterLocationsByType('sports')}
-                disabled={loadingType !== null}
-                sx={quickActionButtonStyle('sports')}
-              >
-                Sports
-              </Button>
-            </Grid>
-            <Grid item xs={6}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={loadingType === 'parking' ? <CircularProgress size={16} /> : <LocalParking />}
-                onClick={() => filterLocationsByType('parking')}
-                disabled={loadingType !== null}
-                sx={quickActionButtonStyle('parking')}
-              >
-                Parking
-              </Button>
-            </Grid>
-          </Grid>
-        </Box>
-
-        {/* Add feedback when no locations found */}
-        {selectedType !== 'all' && filteredLocations.length === 0 && (
-          <Alert 
-            severity="info" 
-            sx={{
-              mx: 2, 
-              mt: 2,
-              borderRadius: '8px',
-              '& .MuiAlert-message': { 
-                color: '#3b82f6' 
-              }
-            }}
-          >
-            No {selectedType} locations found
-          </Alert>
-        )}
-
         {/* Important Updates */}
         <Box sx={{ p: 2, borderBottom: '1px solid #e5e7eb' }}>
           <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1.5, fontWeight: 600 }}>
@@ -1168,56 +1073,6 @@ const CampusMap: React.FC = () => {
                 }}
               />
             </ListItem>
-          </List>
-        </Box>
-
-        {/* Nearby Facilities */}
-        <Box sx={{ p: 2 }}>
-          <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1.5, fontWeight: 600 }}>
-            Nearby Facilities
-          </Typography>
-          <List sx={{ p: 0 }}>
-            {filteredLocations.slice(0, 5).map((location) => (
-              <ListItem 
-                key={location.id}
-                button
-                onClick={() => {
-                  setSelectedLocation(location);
-                  setViewState({
-                    ...viewState,
-                    longitude: location.coordinates[0],
-                    latitude: location.coordinates[1],
-                    zoom: 18
-                  });
-                }}
-                sx={{
-                  px: 1,
-                  py: 1,
-                  borderRadius: '8px',
-                  mb: 0.5,
-                  '&:hover': {
-                    bgcolor: '#f8fafc'
-                  }
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 36 }}>
-                  {React.cloneElement(location.icon as React.ReactElement, {
-                    sx: { 
-                      fontSize: 20,
-                      color: LOCATION_TYPES.find(t => t.type === location.type)?.color
-                    }
-                  })}
-                </ListItemIcon>
-                <ListItemText 
-                  primary={location.name}
-                  secondary={location.type}
-              sx={{ 
-                    '& .MuiTypography-root': { fontSize: '0.875rem' },
-                    '& .MuiTypography-secondary': { color: '#64748b', fontSize: '0.75rem' }
-                  }}
-                />
-              </ListItem>
-            ))}
           </List>
         </Box>
       </Paper>

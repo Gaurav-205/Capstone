@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import NewsAndEventsPage from './pages/NewsAndEventsPage';
 import AdminDashboard from './pages/admin/Dashboard';
 import UserManagement from './pages/admin/UserManagement';
+import FeedbackManagement from './pages/admin/FeedbackManagement';
 
 const App: React.FC = () => {
   return (
@@ -35,7 +36,7 @@ const App: React.FC = () => {
               <Route path="/admin/users" element={<UserManagement />} />
               <Route path="/admin/hostels" element={<div>Hostels Management</div>} />
               <Route path="/admin/lost-found" element={<div>Lost & Found Management</div>} />
-              <Route path="/admin/feedback" element={<div>Feedback Management</div>} />
+              <Route path="/admin/feedback" element={<FeedbackManagement />} />
               <Route path="/admin/settings" element={<div>Admin Settings</div>} />
             </Route>
 

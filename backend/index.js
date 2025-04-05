@@ -35,7 +35,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 app.use(cors({
-  origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'https://ulifetesting.netlify.app'],
+  origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
   credentials: true
 }));
 

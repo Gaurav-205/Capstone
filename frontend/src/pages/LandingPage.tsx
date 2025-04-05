@@ -27,30 +27,101 @@ const LandingPage: React.FC = () => {
           color: 'white',
           py: 8,
           mb: 6,
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(45deg, rgba(123, 31, 162, 0.9) 30%, rgba(74, 20, 140, 0.9) 90%)',
+            zIndex: 1
+          }
         }}
       >
-        <Container maxWidth="lg">
-          <Grid container spacing={4} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <Typography variant="h2" component="h1" gutterBottom>
-                Welcome to ULife
-              </Typography>
-              <Typography variant="h5" sx={{ mb: 4 }}>
-                Your one-stop solution for university life management
-              </Typography>
-              <Button
-                variant="contained"
-                color="secondary"
-                size="large"
-                onClick={() => navigate('/login')}
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            mb: 4
+          }}>
+            <Box
+              sx={{
+                width: 80,
+                height: 80,
+                borderRadius: '20px',
+                bgcolor: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+                mr: 2
+              }}
+            >
+              <Typography
+                variant="h4"
+                sx={{
+                  color: 'primary.main',
+                  fontWeight: 700,
+                  fontSize: '2rem',
+                  letterSpacing: '1px'
+                }}
               >
-                Get Started
-              </Button>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <SchoolIcon sx={{ fontSize: 200, opacity: 0.8 }} />
-            </Grid>
-          </Grid>
+                KK
+              </Typography>
+            </Box>
+            <Typography
+              variant="h2"
+              sx={{
+                fontSize: { xs: '2.5rem', md: '3.5rem' },
+                fontWeight: 700,
+                background: 'linear-gradient(45deg, #ffffff 30%, #e0e0e0 90%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                letterSpacing: '1px'
+              }}
+            >
+              KampusKart
+            </Typography>
+          </Box>
+          <Typography
+            variant="h4"
+            sx={{
+              color: 'white',
+              mb: 3,
+              textAlign: 'center',
+              fontWeight: 500,
+              letterSpacing: '0.5px'
+            }}
+          >
+            Your Toolkit for College
+          </Typography>
+          <Typography
+            variant="h6"
+            sx={{
+              color: 'rgba(255, 255, 255, 0.9)',
+              mb: 4,
+              textAlign: 'center',
+              maxWidth: '800px',
+              mx: 'auto',
+              px: 2,
+              lineHeight: 1.6
+            }}
+          >
+            A modern, vibrant web portal designed for the everyday needs of MIT ADT students, faculty, and visitors. It centralizes all critical campus resources into one seamless platform with a Gen-Z twist.
+          </Typography>
+          <Button
+            variant="contained"
+            color="secondary"
+            size="large"
+            onClick={() => navigate('/login')}
+          >
+            Get Started
+          </Button>
         </Container>
       </Box>
 
@@ -103,7 +174,7 @@ const LandingPage: React.FC = () => {
             Ready to Get Started?
           </Typography>
           <Typography variant="body1" align="center" color="text.secondary" paragraph>
-            Join thousands of students who are already using ULife to manage their university life.
+            Join thousands of students who are already using KampusKart to manage their college life.
           </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
             <Button

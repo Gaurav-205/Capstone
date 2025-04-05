@@ -40,9 +40,49 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const drawer = (
     <div>
       <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          ULife Admin
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: '12px',
+              bgcolor: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+            }}
+          >
+            <Typography
+              variant="h6"
+              sx={{
+                color: 'white',
+                fontWeight: 700,
+                fontSize: '1.2rem',
+                letterSpacing: '0.5px'
+              }}
+            >
+              KK
+            </Typography>
+          </Box>
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{ 
+              display: { xs: 'none', sm: 'block' },
+              fontWeight: 700,
+              fontSize: '1.25rem',
+              letterSpacing: '0.5px',
+              background: 'linear-gradient(45deg, #7B1FA2 30%, #4A148C 90%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+            }}
+          >
+            KampusKart
+          </Typography>
+        </Box>
       </Toolbar>
       <Divider />
       <List>
@@ -86,8 +126,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            ULife Admin Panel
+          <Typography variant="h6" noWrap component="div" sx={{
+            fontWeight: 600,
+            background: 'linear-gradient(45deg, #ffffff 30%, #e0e0e0 90%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+          }}>
+            KampusKart Admin Panel
           </Typography>
         </Toolbar>
       </AppBar>

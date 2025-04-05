@@ -67,14 +67,64 @@ const Sidebar = () => {
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
         {/* Logo */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <img
-            src="/logo.png"
-            alt="Logo"
-            style={{ height: 40, marginRight: 10 }}
-          />
-          <Typography variant="h6" sx={{ color: theme.palette.primary.main }}>
-            ScholarlyFe
-          </Typography>
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: '12px',
+              background: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.25)',
+              mr: 2,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
+              },
+              overflow: 'hidden'
+            }}
+          >
+            <Box
+              component="img"
+              src="/images/logo.png"
+              alt="KampusKart Logo"
+              sx={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                p: 0.5
+              }}
+            />
+          </Box>
+          <Box>
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: 800,
+                background: 'linear-gradient(135deg, #1976D2 0%, #1565C0 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '0.5px',
+                mb: 0.5
+              }}
+            >
+              KampusKart
+            </Typography>
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: 'text.secondary',
+                display: 'block',
+                letterSpacing: '0.5px',
+                fontSize: '0.75rem',
+                fontWeight: 500
+              }}
+            >
+              Your Toolkit for College
+            </Typography>
+          </Box>
         </Box>
 
         <Divider sx={{ mb: 2 }} />

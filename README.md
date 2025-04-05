@@ -1,6 +1,6 @@
-# ULife - University Life Management System
+# KampusKart – Your Toolkit for College
 
-A comprehensive web application for managing university life, including hostel facilities, lost and found items, and student profiles.
+A modern, vibrant web portal designed for the everyday needs of MIT ADT students, faculty, and visitors. It centralizes all critical campus resources into one seamless platform with a Gen-Z twist.
 
 ## Features
 
@@ -56,8 +56,8 @@ A comprehensive web application for managing university life, including hostel f
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/ULife.git
-cd ULife
+git clone https://github.com/yourusername/KampusKart.git
+cd KampusKart
 ```
 
 2. Install dependencies:

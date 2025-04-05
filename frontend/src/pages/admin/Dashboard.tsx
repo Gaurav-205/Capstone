@@ -85,9 +85,62 @@ const AdminDashboard: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" component="h1" fontWeight="bold">
-          ULife Admin Dashboard
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: '12px',
+              background: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.25)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
+              },
+              overflow: 'hidden'
+            }}
+          >
+            <Box
+              component="img"
+              src="/images/logo.png"
+              alt="KampusKart Logo"
+              sx={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                p: 0.5
+              }}
+            />
+          </Box>
+          <Box>
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                fontWeight: 800,
+                background: 'linear-gradient(135deg, #1976D2 0%, #1565C0 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '0.5px'
+              }}
+            >
+              Admin Dashboard
+            </Typography>
+            <Typography 
+              variant="subtitle2" 
+              sx={{ 
+                color: 'text.secondary',
+                letterSpacing: '0.5px',
+                fontWeight: 500
+              }}
+            >
+              Manage your campus resources
+            </Typography>
+          </Box>
+        </Box>
         <Stack direction="row" spacing={2}>
           <Button
             variant="contained"

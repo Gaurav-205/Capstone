@@ -80,8 +80,10 @@ const Login: React.FC = () => {
           backgroundImage: 'url(/images/nature-leaves.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          borderTopRightRadius: '2rem',
-          borderBottomRightRadius: '2rem',
+          // borderTopRightRadius: '2rem',
+          // borderBottomRightRadius: '2rem',
+          // borderTopLeftRadius: '2rem',
+          // borderBottomLeftRadius: '2rem',
         }}
       />
 
@@ -102,23 +104,77 @@ const Login: React.FC = () => {
             maxWidth: '400px',
           }}
         >
-          <Box sx={{ mb: 6, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ mb: 6, display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box
-              component="img"
-              src="/logo.png"
-              alt="Logo"
-              sx={{ width: 24, height: 24 }}
-            />
-            <Typography variant="subtitle1" fontWeight="500">
-              Scholarlyfe
-            </Typography>
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: '12px',
+                background: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.25)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
+                },
+                overflow: 'hidden'
+              }}
+            >
+              <Box
+                component="img"
+                src="/images/logo.png"
+                alt="KampusKart Logo"
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  p: 0.5
+                }}
+              />
+            </Box>
+            <Box>
+              <Typography 
+                variant="h5" 
+                sx={{ 
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #1976D2 0%, #1565C0 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  letterSpacing: '0.5px',
+                  mb: 0.5
+                }}
+              >
+                KampusKart
+              </Typography>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  color: 'text.secondary',
+                  display: 'block',
+                  letterSpacing: '0.5px',
+                  fontSize: '0.75rem',
+                  fontWeight: 500
+                }}
+              >
+                Your Toolkit for College
+              </Typography>
+            </Box>
           </Box>
 
-          <Typography variant="h4" component="h1" fontWeight="600" sx={{ mb: 1 }}>
-            Hello,
+          <Typography variant="h3" component="h1" gutterBottom sx={{ 
+            fontWeight: 800, 
+            letterSpacing: '0.5px',
+            background: 'linear-gradient(135deg, #1976D2 0%, #1565C0 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}>
+            Welcome Back
           </Typography>
-          <Typography variant="h4" component="h1" fontWeight="600" sx={{ mb: 4 }}>
-            Welcome to Campus Life
+          <Typography variant="body1" sx={{ mb: 4, color: 'text.secondary', maxWidth: 400 }}>
+            A modern, vibrant web portal designed for MIT ADT students, faculty, and visitors.
           </Typography>
 
           {error && (
@@ -152,7 +208,6 @@ const Login: React.FC = () => {
                 {...register('password')}
                 error={!!errors.password}
                 helperText={errors.password?.message}
-                autoComplete="current-password"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     bgcolor: '#F8F9FA',

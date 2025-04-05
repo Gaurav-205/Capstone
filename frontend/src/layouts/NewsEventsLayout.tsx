@@ -38,7 +38,7 @@ const NewsEventsLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       >
         <Container maxWidth="xl">
           <Typography variant="body2" color="text.secondary" align="center">
-            © {new Date().getFullYear()} ScholarlyFe. All rights reserved.
+            © {new Date().getFullYear()} KampusKart. All rights reserved.
           </Typography>
         </Container>
       </Box>
