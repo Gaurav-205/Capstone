@@ -36,6 +36,7 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -53,6 +54,7 @@ import {
   Image as ImageIcon,
   CheckCircle,
   FilterList,
+  Category,
 } from '@mui/icons-material';
 import { lostFoundService, LostFoundItem, LostFoundStats } from '../services/lostFoundService';
 

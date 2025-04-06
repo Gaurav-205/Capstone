@@ -78,7 +78,9 @@ const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_TOKEN || '';
 const CAMPUS_CENTER: MapViewState = {
   latitude: 18.492462959666025,
   longitude: 74.02553149122912,
-  zoom: 16.5
+  zoom: 16.5,
+  bearing: 0,
+  pitch: 0
 };
 
 // Map styles
@@ -354,8 +356,8 @@ const CampusMap: React.FC = () => {
 
   // Handle map move with correct type
   const handleMapMove = useCallback((evt: ViewStateChangeEvent) => {
-    const { latitude, longitude, zoom, bearing, pitch } = evt.viewState;
-    setViewState({ latitude, longitude, zoom, bearing, pitch });
+    const { latitude, longitude, zoom } = evt.viewState;
+    setViewState({ latitude, longitude, zoom, bearing: 0, pitch: 0 });
   }, []);
 
   // Optimized marker rendering
