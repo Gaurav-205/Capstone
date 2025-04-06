@@ -5,6 +5,14 @@ const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:300
 
 // Configure axios defaults
 axios.defaults.withCredentials = true;
+axios.defaults.timeout = 30000; // 30 seconds default timeout
+
+// Retry configuration
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000; // 2 seconds
+
+// Helper function to delay execution
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Add request logging
 axios.interceptors.request.use(request => {
@@ -31,7 +39,8 @@ axios.interceptors.response.use(
     console.error('Response Error:', {
       message: error.message,
       response: error.response?.data,
-      status: error.response?.status
+      status: error.response?.status,
+      code: error.code
     });
     return Promise.reject(error);
   }
@@ -177,38 +186,65 @@ class AuthService {
   }
 
   public async login(data: LoginData): Promise<AuthResponse> {
-    try {
-      console.log('Attempting login with API URL:', API_URL);
-      const response = await axios.post(`${API_URL}/auth/login`, data, {
-        withCredentials: true,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        timeout: 10000 // 10 second timeout
-      });
-      
-      console.log('Login response:', response.data);
-      const { token, user } = response.data;
-      
-      if (!token || !user) {
-        console.error('Invalid response structure:', response.data);
-        throw new Error('Invalid response from server');
+    let lastError;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`Login attempt ${attempt} of ${MAX_RETRIES}...`);
+        console.log('Attempting login with API URL:', API_URL);
+        
+        // Check if the server is reachable
+        try {
+          await axios.options(`${API_URL}/auth/login`, { timeout: 5000 });
+        } catch (error) {
+          console.log('Server health check failed, retrying...');
+          if (attempt < MAX_RETRIES) {
+            await delay(RETRY_DELAY);
+            continue;
+          }
+        }
+        
+        const response = await axios.post(`${API_URL}/auth/login`, data, {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          timeout: 30000 // 30 second timeout
+        });
+        
+        console.log('Login response:', response.data);
+        const { token, user } = response.data;
+        
+        if (!token || !user) {
+          console.error('Invalid response structure:', response.data);
+          throw new Error('Invalid response from server');
+        }
+        
+        console.log('Setting auth with token and user:', { token: token.substring(0, 10) + '...', user });
+        this.setAuth(token, user);
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        console.error(`Login attempt ${attempt} failed:`, {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+          code: error.code
+        });
+        
+        // If it's not a timeout error, or if it's the last attempt, don't retry
+        if (error.code !== 'ECONNABORTED' && error.message !== 'timeout' || attempt === MAX_RETRIES) {
+          break;
+        }
+        
+        // Wait before retrying
+        await delay(RETRY_DELAY);
       }
-      
-      console.log('Setting auth with token and user:', { token: token.substring(0, 10) + '...', user });
-      this.setAuth(token, user);
-      return response.data;
-    } catch (error: any) {
-      console.error('Login error:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        config: error.config
-      });
-      throw error;
     }
+    
+    // If all attempts failed, throw the last error
+    throw new Error(lastError?.response?.data?.message || lastError?.message || 'Failed to connect to server');
   }
 
   public async signup(data: SignupData): Promise<AuthResponse> {

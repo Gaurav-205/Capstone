@@ -27,6 +27,7 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const { login } = useAuth();
   
   const {
@@ -71,7 +72,27 @@ const Login: React.FC = () => {
         message: err.message,
         status: err.response?.status
       });
-      setError(err.response?.data?.message || err.message || 'An error occurred during login');
+
+      let errorMessage = '';
+      
+      if (err.message.includes('timeout') || err.message.includes('Failed to connect')) {
+        errorMessage = 'Unable to reach the server. The server might be starting up, please wait a moment and try again.';
+        // Increment retry count for timeout errors
+        setRetryCount(prev => prev + 1);
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Invalid email or password';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Login service is currently unavailable. Please try again later.';
+      } else {
+        errorMessage = err.response?.data?.message || err.message || 'An error occurred during login';
+      }
+
+      // Add retry suggestion if we've had multiple timeouts
+      if (retryCount >= 2) {
+        errorMessage += ' The server might be taking longer than usual to start. Please wait a minute before trying again.';
+      }
+
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
