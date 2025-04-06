@@ -9,13 +9,18 @@ const app = express();
 // CORS configuration
 const corsOptions = {
   origin: ['https://ulifetesting.netlify.app', 'http://localhost:3000'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
 };
 
 // Middleware
 app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 
 // Debug middleware to log all requests
@@ -42,11 +47,13 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ulife', {
 // Load routes
 const profileRoutes = require('./routes/profileRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 // Routes
 console.log('Registering routes...');
 app.use('/api/profile', profileRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/auth', authRoutes);
 
 // Test route
 app.get('/api/test', (req, res) => {
