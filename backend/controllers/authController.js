@@ -81,17 +81,29 @@ exports.googleCallback = (req, res, next) => {
   })(req, res, next);
 };
 
-// Get current user
-exports.getCurrentUser = (req, res) => {
-  if (req.user) {
+// Get current user data
+exports.getCurrentUser = async (req, res) => {
+  try {
+    console.log('Getting current user data');
+    const user = await User.findById(req.user.id).select('-password');
+    
+    if (!user) {
+      console.log('No user found with ID:', req.user.id);
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    console.log('Returning user data for:', user.email);
     res.json({
-      id: req.user.id,
-      email: req.user.email,
-      name: req.user.name,
-      picture: req.user.picture
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      picture: user.picture,
+      role: user.role || 'user',
+      hasSetPassword: user.hasSetPassword
     });
-  } else {
-    res.status(401).json({ message: 'Not authenticated' });
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    res.status(500).json({ message: 'Error retrieving user data' });
   }
 };
 

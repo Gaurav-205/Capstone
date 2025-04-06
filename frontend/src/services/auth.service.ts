@@ -304,13 +304,25 @@ class AuthService {
     return !!this.token && !!this.user;
   }
 
-  public async handleGoogleCallback(token: string): Promise<AuthResponse> {
+  public async handleGoogleCallback(token: string): Promise<void> {
     try {
-      const response = await axios.post<AuthResponse>(`${API_URL}/auth/google/callback`, { token });
-      const { token: authToken, user } = response.data;
-      this.setAuth(authToken, user);
-      return response.data;
+      console.log('Handling Google callback with token');
+      
+      // Set the token directly since it's already a JWT from our backend
+      this.token = token;
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Get user data using the token
+      const response = await axios.get(`${API_URL}/auth/me`);
+      const user = response.data;
+      
+      // Set auth state
+      this.setAuth(token, user);
+      
+      console.log('Google authentication successful');
     } catch (error: any) {
+      console.error('Google authentication error:', error);
+      this.clearAuth();
       throw new Error(`Google authentication failed: ${error.response?.data?.message || error.message}`);
     }
   }

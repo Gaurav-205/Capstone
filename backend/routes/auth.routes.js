@@ -18,7 +18,7 @@ router.post('/signup', signup);
 router.post('/login', login);
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:resetToken', resetPassword);
-router.get('/me', isAuthenticated, getCurrentUser);
+router.get('/me', protect, getCurrentUser);
 router.post('/set-password', isAuthenticated, setPassword);
 
 // Google OAuth routes
@@ -51,11 +51,10 @@ router.get(
         expiresIn: process.env.JWT_EXPIRE
       });
 
-      // Create redirect URL without double slashes
-      const redirectURL = new URL(process.env.FRONTEND_URL);
-      redirectURL.pathname = 'auth/callback';  // No leading slash to prevent double slash
+      // Create redirect URL with token
+      const redirectURL = new URL(`${process.env.FRONTEND_URL}/auth/callback`);
       redirectURL.searchParams.append('token', token);
-      redirectURL.searchParams.append('needsPassword', req.user.needsPassword);
+      redirectURL.searchParams.append('needsPassword', (!req.user.hasSetPassword).toString());
 
       console.log('Redirecting to:', redirectURL.toString());
       res.redirect(redirectURL.toString());
