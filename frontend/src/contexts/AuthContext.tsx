@@ -44,7 +44,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Refresh user data from server
           try {
             const response = await authService.getCurrentUser();
-            setUser(normalizeUser(response.user));
+            if (response) {
+              setUser(normalizeUser(response));
+            }
           } catch (error) {
             console.error('Failed to refresh user data:', error);
           }

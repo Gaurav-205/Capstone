@@ -8,11 +8,26 @@ axios.defaults.withCredentials = true;
 axios.defaults.timeout = 30000; // 30 seconds default timeout
 
 // Retry configuration
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000; // 2 seconds
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 5000;
+const HEALTH_CHECK_TIMEOUT = 10000;
 
 // Helper function to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper function to check server health
+const checkServerHealth = async () => {
+  try {
+    // Try a simple GET request to the root API endpoint
+    const response = await axios.get(`${API_URL}`, {
+      timeout: HEALTH_CHECK_TIMEOUT
+    });
+    return response.status === 200;
+  } catch (error: any) {
+    console.log('Server health check failed:', error.message);
+    return false;
+  }
+};
 
 // Add request logging
 axios.interceptors.request.use(request => {
@@ -68,6 +83,16 @@ export interface SignupData {
   name: string;
   email: string;
   password: string;
+}
+
+export interface ResetPasswordResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface SetPasswordResponse {
+  success: boolean;
+  message: string;
 }
 
 class AuthService {
@@ -158,26 +183,7 @@ class AuthService {
     }
   }
 
-  public initializeAuth() {
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    
-    if (token) {
-      this.token = token;
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
-      if (userStr) {
-        try {
-          this.user = JSON.parse(userStr);
-        } catch (error) {
-          console.error('Failed to parse user data:', error);
-          this.clearAuth();
-        }
-      }
-    }
-  }
-
-  public clearAuth() {
+  private clearAuth() {
     this.token = null;
     this.user = null;
     localStorage.removeItem('token');
@@ -185,193 +191,120 @@ class AuthService {
     delete axios.defaults.headers.common['Authorization'];
   }
 
-  public async login(data: LoginData): Promise<AuthResponse> {
-    let lastError;
-    
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  public async login(loginData: LoginData): Promise<AuthResponse> {
+    let retryCount = 0;
+    while (retryCount < MAX_RETRIES) {
       try {
-        console.log(`Login attempt ${attempt} of ${MAX_RETRIES}...`);
-        console.log('Attempting login with API URL:', API_URL);
-        
-        // Check if the server is reachable
-        try {
-          await axios.options(`${API_URL}/auth/login`, { timeout: 5000 });
-        } catch (error) {
-          console.log('Server health check failed, retrying...');
-          if (attempt < MAX_RETRIES) {
-            await delay(RETRY_DELAY);
-            continue;
-          }
+        // Check server health before attempting login
+        const isHealthy = await checkServerHealth();
+        if (!isHealthy) {
+          console.log(`Server health check failed, attempt ${retryCount + 1}/${MAX_RETRIES}`);
+          await delay(RETRY_DELAY);
+          retryCount++;
+          continue;
         }
-        
-        const response = await axios.post(`${API_URL}/auth/login`, data, {
-          withCredentials: true,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          timeout: 30000 // 30 second timeout
-        });
-        
-        console.log('Login response:', response.data);
+
+        const response = await axios.post<AuthResponse>(`${API_URL}/auth/login`, loginData);
         const { token, user } = response.data;
-        
-        if (!token || !user) {
-          console.error('Invalid response structure:', response.data);
-          throw new Error('Invalid response from server');
-        }
-        
-        console.log('Setting auth with token and user:', { token: token.substring(0, 10) + '...', user });
         this.setAuth(token, user);
         return response.data;
       } catch (error: any) {
-        lastError = error;
-        console.error(`Login attempt ${attempt} failed:`, {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
-          code: error.code
-        });
-        
-        // If it's not a timeout error, or if it's the last attempt, don't retry
-        if (error.code !== 'ECONNABORTED' && error.message !== 'timeout' || attempt === MAX_RETRIES) {
-          break;
+        if (retryCount === MAX_RETRIES - 1) {
+          throw new Error(
+            `Login failed after ${MAX_RETRIES} attempts. ${error.response?.data?.message || error.message}`
+          );
         }
-        
-        // Wait before retrying
+        console.log(`Login attempt ${retryCount + 1} failed, retrying...`);
         await delay(RETRY_DELAY);
+        retryCount++;
       }
     }
-    
-    // If all attempts failed, throw the last error
-    throw new Error(lastError?.response?.data?.message || lastError?.message || 'Failed to connect to server');
+    throw new Error('Login failed: Maximum retry attempts exceeded');
   }
 
-  public async signup(data: SignupData): Promise<AuthResponse> {
+  public async logout(): Promise<void> {
     try {
-      const response = await axios.post(`${API_URL}/auth/signup`, data);
-      const { token, user } = response.data;
-      if (!token || !user) {
-        throw new Error('Invalid response from server');
-      }
-      this.setAuth(token, user);
-      return response.data;
-    } catch (error: any) {
-      console.error('Signup error:', error.response?.data || error);
-      throw error;
-    }
-  }
-
-  public async getCurrentUser() {
-    try {
-      if (!this.token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await axios.get(`${API_URL}/auth/me`);
-      const { user } = response.data;
-      if (!user) {
-        throw new Error('Invalid response from server');
-      }
-      this.user = user;
-      localStorage.setItem('user', JSON.stringify({
-        ...user,
-        role: user.role || 'user'
-      }));
-      return response.data;
-    } catch (error: any) {
-      console.error('Get current user error:', error.response?.data || error);
+      await axios.post(`${API_URL}/auth/logout`);
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
       this.clearAuth();
-      throw error;
     }
-  }
-
-  public logout() {
-    this.clearAuth();
-    window.location.href = '/login';
-  }
-
-  public isAuthenticated(): boolean {
-    return !!this.token;
   }
 
   public getToken(): string | null {
     return this.token;
   }
 
-  public getUser() {
+  public getUser(): AuthResponse['user'] | null {
     return this.user;
+  }
+
+  public isAuthenticated(): boolean {
+    return !!this.token && !!this.user;
+  }
+
+  public async handleGoogleCallback(token: string): Promise<AuthResponse> {
+    try {
+      const response = await axios.post<AuthResponse>(`${API_URL}/auth/google/callback`, { token });
+      const { token: authToken, user } = response.data;
+      this.setAuth(authToken, user);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(`Google authentication failed: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  public async signup(signupData: SignupData): Promise<AuthResponse> {
+    try {
+      const response = await axios.post<AuthResponse>(`${API_URL}/auth/signup`, signupData);
+      const { token, user } = response.data;
+      this.setAuth(token, user);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(`Signup failed: ${error.response?.data?.message || error.message}`);
+    }
   }
 
   public async forgotPassword(email: string): Promise<{ message: string }> {
     try {
-      const response = await axios.post(`${API_URL}/auth/forgot-password`, { email });
+      const response = await axios.post<{ message: string }>(`${API_URL}/auth/forgot-password`, { email });
       return response.data;
     } catch (error: any) {
-      console.error('Forgot password error:', error.response?.data || error);
-      throw error;
+      throw new Error(`Password reset request failed: ${error.response?.data?.message || error.message}`);
     }
   }
 
-  public async resetPassword(token: string, password: string): Promise<{ message: string }> {
+  public async resetPassword(token: string, password: string): Promise<ResetPasswordResponse> {
     try {
-      const response = await axios.put(`${API_URL}/auth/reset-password/${token}`, { password });
+      const response = await axios.post<ResetPasswordResponse>(`${API_URL}/auth/reset-password`, {
+        token,
+        password
+      });
       return response.data;
     } catch (error: any) {
-      console.error('Reset password error:', error.response?.data || error);
-      throw error;
+      throw new Error(`Password reset failed: ${error.response?.data?.message || error.message}`);
     }
   }
 
-  public async setPassword(password: string): Promise<{ message: string; user: AuthResponse['user'] }> {
+  public async setPassword(password: string): Promise<SetPasswordResponse> {
     try {
-      if (!this.token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await axios.post(`${API_URL}/auth/set-password`, { password });
-      if (response.data.user) {
-        this.user = response.data.user;
-        localStorage.setItem('user', JSON.stringify(this.user));
-      }
+      const response = await axios.post<SetPasswordResponse>(`${API_URL}/auth/set-password`, {
+        password
+      }, {
+        headers: { Authorization: `Bearer ${this.token}` }
+      });
       return response.data;
     } catch (error: any) {
-      console.error('Set password error:', error.response?.data || error);
-      throw error;
+      throw new Error(`Setting password failed: ${error.response?.data?.message || error.message}`);
     }
   }
 
-  public async handleGoogleCallback(token: string) {
-    try {
-      console.log('Starting Google callback handling...');
-      
-      // First, store the token
-      this.token = token;
-      localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
-      // Get the user data
-      console.log('Fetching user data...');
-      const response = await axios.get(`${API_URL}/auth/me`);
-      
-      if (!response.data.user) {
-        throw new Error('Failed to get user data');
-      }
-      
-      // Update the auth state with the user data
-      this.user = response.data.user;
-      localStorage.setItem('user', JSON.stringify(this.user));
-      
-      console.log('Google callback completed successfully');
-      return response.data;
-    } catch (error: any) {
-      console.error('Google callback error:', error.response?.data || error);
-      this.clearAuth();
-      throw new Error(error.response?.data?.message || 'Failed to complete authentication');
-    }
+  public getCurrentUser(): AuthResponse['user'] | null {
+    return this.user;
   }
 }
 
-// Create and export the singleton instance
+// Create and export a singleton instance
 const authService = AuthService.getInstance();
-export default authService; 
+export default authService;

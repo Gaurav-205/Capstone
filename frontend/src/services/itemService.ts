@@ -1,7 +1,7 @@
 import axios from 'axios';
 import authService from './auth.service';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://kampuskart.onrender.com/api';
 
 // No need for getAuthHeader since we're using axios interceptors now
 
@@ -46,6 +46,12 @@ interface User {
   name: string;
   email: string;
   hasSetPassword?: boolean;
+}
+
+// Helper function to get user ID regardless of property name
+function getUserId(user: User | null): string | null {
+  if (!user) return null;
+  return user._id || user.id;
 }
 
 class ItemService {
@@ -144,16 +150,21 @@ class ItemService {
       }
 
       // Get the item first to check if it can be updated
-      const response = await axios.get(`${API_URL}/items/${id}`);
+      const response = await axios.get<Item>(`${API_URL}/items/${id}`);
       const item = response.data;
 
-      const user = authService.getUser() as User;
+      const user = authService.getCurrentUser();
       if (!user) {
         throw new Error('User not found');
       }
 
+      const userId = getUserId(user);
+      if (!userId) {
+        throw new Error('User ID not found');
+      }
+
       // Only allow status updates by the owner, except for claiming
-      if (status !== 'claimed' && item.postedBy._id !== user._id) {
+      if (status !== 'claimed' && item.postedBy._id !== userId) {
         throw new Error('You can only update your own items');
       }
 
@@ -194,7 +205,7 @@ class ItemService {
       }
 
       // Get the item first to check ownership
-      const response = await axios.get(`${API_URL}/items/${id}`);
+      const response = await axios.get<Item>(`${API_URL}/items/${id}`);
       const item = response.data;
 
       // Check if item and postedBy exist
@@ -202,22 +213,18 @@ class ItemService {
         throw new Error('Invalid item data received from server');
       }
 
-      const user = authService.getUser() as User;
+      const user = authService.getCurrentUser();
       if (!user) {
         throw new Error('User not found');
       }
 
-      // Use user.id since that's what's guaranteed to be available from auth service
-      const userId = user.id;
+      const userId = getUserId(user);
       if (!userId) {
         throw new Error('User ID not found');
       }
 
       // Compare IDs as strings
-      const itemOwnerId = item.postedBy._id.toString();
-      const currentUserId = userId.toString();
-
-      if (itemOwnerId !== currentUserId) {
+      if (item.postedBy._id.toString() !== userId.toString()) {
         throw new Error('You can only delete your own items');
       }
 
@@ -234,13 +241,12 @@ class ItemService {
         throw new Error('You must be logged in to view your items');
       }
 
-      const user = authService.getUser() as User;
+      const user = authService.getCurrentUser();
       if (!user) {
         throw new Error('User not found');
       }
 
-      // Use user.id since that's what's guaranteed to be available from auth service
-      const userId = user.id;
+      const userId = getUserId(user);
       if (!userId) {
         throw new Error('User ID not found');
       }

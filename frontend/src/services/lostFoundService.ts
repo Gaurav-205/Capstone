@@ -1,10 +1,11 @@
 import axios, { AxiosError } from 'axios';
+import { API_URL } from '../config';
 
 // Update API URL to point to the backend server
-const API_URL = 'http://localhost:5000/api/lost-found';
+const LOST_FOUND_API_URL = `${API_URL}/lost-found`;
 
 // Configure axios defaults
-axios.defaults.baseURL = 'http://localhost:5000';
+axios.defaults.baseURL = API_URL;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 // Add request interceptor to include auth token
@@ -148,7 +149,7 @@ export const lostFoundService = {
         params.append(key, value.toString());
       }
     });
-    const response = await axios.get(`${API_URL}?${params.toString()}`);
+    const response = await axios.get(`${LOST_FOUND_API_URL}?${params.toString()}`);
     
     // Filter out expired items on the frontend
     const filteredItems = response.data.data.items.filter((item: LostFoundItem) => !isItemExpired(item));
@@ -173,40 +174,40 @@ export const lostFoundService = {
 
   // Get single item
   getItemById: async (id: string): Promise<ApiResponse<LostFoundItem>> => {
-    const response = await axios.get(`${API_URL}/${id}`);
+    const response = await axios.get(`${LOST_FOUND_API_URL}/${id}`);
     return response.data;
   },
 
   // Create new item
   createItem: async (item: Omit<LostFoundItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<LostFoundItem>> => {
     console.log('Creating item with userId:', localStorage.getItem('userId'));
-    const response = await axios.post(API_URL, item);
+    const response = await axios.post(LOST_FOUND_API_URL, item);
     console.log('Create item response from server:', response.data);
     return response.data;
   },
 
   // Update item
   updateItem: async (id: string, item: Partial<LostFoundItem>): Promise<ApiResponse<LostFoundItem>> => {
-    const response = await axios.put(`${API_URL}/${id}`, item);
+    const response = await axios.put(`${LOST_FOUND_API_URL}/${id}`, item);
     return response.data;
   },
 
   // Delete item
   deleteItem: async (id: string): Promise<ApiResponse<{ message: string }>> => {
-    const response = await axios.delete(`${API_URL}/${id}`);
+    const response = await axios.delete(`${LOST_FOUND_API_URL}/${id}`);
     return response.data;
   },
 
   // Mark item as resolved
   markResolved: async (id: string): Promise<ApiResponse<LostFoundItem>> => {
-    const response = await axios.patch(`${API_URL}/${id}/resolve`);
+    const response = await axios.patch(`${LOST_FOUND_API_URL}/${id}/resolve`);
     return response.data;
   },
 
   // Get statistics
   getStatistics: async (): Promise<{ data: LostFoundStats }> => {
     try {
-      const response = await axios.get(`${API_URL}/statistics`);
+      const response = await axios.get(`${LOST_FOUND_API_URL}/statistics`);
       return {
         data: {
           activeLostItems: response.data?.data?.activeLostItems || 0,

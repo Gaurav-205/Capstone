@@ -92,7 +92,7 @@ const SetPassword: React.FC = () => {
         }
 
         const userData = await authService.getCurrentUser();
-        if (userData.user.hasSetPassword) {
+        if (userData && userData.hasSetPassword) {
           setShouldRedirect(true);
           return;
         }
