@@ -6,6 +6,7 @@ const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:300
 // Configure axios defaults
 axios.defaults.withCredentials = true;
 axios.defaults.timeout = 30000; // 30 seconds default timeout
+axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 // Retry configuration
 const MAX_RETRIES = 3;
@@ -14,34 +15,42 @@ const RETRY_DELAY = 2000;
 // Helper function to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Add request logging
+// Add request logging with sensitive data protection
 axios.interceptors.request.use(request => {
-  console.log('Starting Request:', {
+  const logSafeRequest = {
     url: request.url,
     method: request.method,
-    headers: request.headers,
-    data: request.data
-  });
+    headers: { ...request.headers },
+    data: request.data ? { 
+      ...request.data,
+      password: request.data.password ? '[REDACTED]' : undefined
+    } : undefined
+  };
+  console.log('Starting Request:', logSafeRequest);
   return request;
 });
 
-// Add response logging
+// Add response logging with error handling
 axios.interceptors.response.use(
   response => {
     console.log('Response:', {
       status: response.status,
       headers: response.headers,
-      data: response.data
+      data: response.data ? {
+        ...response.data,
+        token: response.data.token ? '[REDACTED]' : undefined
+      } : undefined
     });
     return response;
   },
   error => {
-    console.error('Response Error:', {
+    const errorResponse = {
       message: error.message,
-      response: error.response?.data,
       status: error.response?.status,
+      data: error.response?.data,
       code: error.code
-    });
+    };
+    console.error('Response Error:', errorResponse);
     return Promise.reject(error);
   }
 );
@@ -88,7 +97,6 @@ class AuthService {
   private responseInterceptor: number | null = null;
 
   private constructor() {
-    // Initialize from localStorage
     this.initializeFromStorage();
     this.setupInterceptors();
   }
@@ -117,7 +125,6 @@ class AuthService {
   }
 
   private setupInterceptors() {
-    // Remove existing interceptors if they exist
     if (this.requestInterceptor !== null) {
       axios.interceptors.request.eject(this.requestInterceptor);
     }
@@ -125,7 +132,6 @@ class AuthService {
       axios.interceptors.response.eject(this.responseInterceptor);
     }
 
-    // Request interceptor
     this.requestInterceptor = axios.interceptors.request.use(
       (config) => {
         if (this.token) {
@@ -140,13 +146,14 @@ class AuthService {
       }
     );
 
-    // Response interceptor
     this.responseInterceptor = axios.interceptors.response.use(
       (response) => response,
       async (error) => {
         if (error.response?.status === 401) {
-          this.clearAuth();
-          if (!window.location.pathname.includes('/login')) {
+          // Clear auth and redirect only if not already on login page and not trying to login
+          const isLoginRequest = error.config.url.includes('/login');
+          if (!isLoginRequest && !window.location.pathname.includes('/login')) {
+            this.clearAuth();
             window.location.href = `${FRONTEND_URL}/login?error=session_expired`;
           }
         }
@@ -155,16 +162,111 @@ class AuthService {
     );
   }
 
+  public async login(loginData: LoginData): Promise<AuthResponse> {
+    console.log('Starting login process...');
+    let retryCount = 0;
+    let lastError: any = null;
+
+    while (retryCount < MAX_RETRIES) {
+      try {
+        console.log(`Attempting login (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+        
+        // First clear any existing auth
+        this.clearAuth();
+        
+        const response = await axios.post<AuthResponse>(`${API_URL}/auth/login`, loginData);
+        
+        if (!response.data.token || !response.data.user) {
+          throw new Error('Invalid response from server: missing token or user data');
+        }
+
+        const { token, user } = response.data;
+        this.setAuth(token, user);
+        console.log('Login successful');
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        console.error(`Login attempt ${retryCount + 1} failed:`, error.response?.data || error.message);
+
+        if (error.response?.status === 401) {
+          throw new Error('Invalid email or password');
+        }
+
+        if (error.response?.status === 404) {
+          throw new Error('Login service not available');
+        }
+
+        if (retryCount < MAX_RETRIES - 1 && (!error.response || error.response.status >= 500)) {
+          console.log(`Retrying in ${RETRY_DELAY/1000} seconds...`);
+          await delay(RETRY_DELAY);
+          retryCount++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    throw new Error(
+      lastError?.response?.data?.message || 
+      lastError?.message || 
+      'Unable to connect to the server. Please check your internet connection and try again.'
+    );
+  }
+
+  public async logout(): Promise<void> {
+    try {
+      if (this.token) {
+        try {
+          // Attempt to logout from server using the correct endpoint
+          await axios.post(`${API_URL}/auth/logout`, {}, {
+            headers: { Authorization: `Bearer ${this.token}` }
+          });
+          console.log('Server logout successful');
+        } catch (error: any) {
+          // Log but don't throw - we'll still clear local state
+          console.log('Server logout failed (this is expected if session expired):', error.message);
+        }
+      }
+    } finally {
+      // Clear local state
+      this.clearAuth();
+      
+      // Remove all axios interceptors
+      if (this.requestInterceptor !== null) {
+        axios.interceptors.request.eject(this.requestInterceptor);
+      }
+      if (this.responseInterceptor !== null) {
+        axios.interceptors.response.eject(this.responseInterceptor);
+      }
+      
+      // Reset axios defaults
+      delete axios.defaults.headers.common['Authorization'];
+      
+      // Redirect if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = `${FRONTEND_URL}/login?message=logged_out`;
+      }
+    }
+  }
+
   private setAuth(token: string, user: AuthResponse['user']) {
     try {
+      // Clear any existing auth first
+      this.clearAuth();
+      
+      // Set new auth data
       this.token = token;
       this.user = user;
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Refresh interceptors
+      this.setupInterceptors();
     } catch (error) {
       console.error('Error setting auth:', error);
       this.clearAuth();
+      throw error;
     }
   }
 
@@ -174,69 +276,6 @@ class AuthService {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     delete axios.defaults.headers.common['Authorization'];
-  }
-
-  public async login(loginData: LoginData): Promise<AuthResponse> {
-    console.log('Starting login process...');
-    console.log('API URL:', API_URL);
-    console.log('Login data:', { email: loginData.email, passwordLength: loginData?.password?.length });
-
-    let retryCount = 0;
-    let lastError: any = null;
-
-    while (retryCount < MAX_RETRIES) {
-      try {
-        console.log(`Attempting login (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
-        const response = await axios.post<AuthResponse>(`${API_URL}/auth/login`, loginData);
-        const { token, user } = response.data;
-        this.setAuth(token, user);
-        console.log('Login successful');
-        return response.data;
-      } catch (error: any) {
-        lastError = error;
-        console.error(`Login attempt ${retryCount + 1} failed:`, error.response?.data || error.message);
-
-        // If we get a 401 or 404, don't retry as these are "valid" responses
-        if (error.response?.status === 401 || error.response?.status === 404) {
-          throw new Error(error.response?.data?.message || 'Invalid credentials');
-        }
-
-        // For network errors or 5xx errors, retry
-        if (retryCount < MAX_RETRIES - 1) {
-          console.log(`Retrying in ${RETRY_DELAY/1000} seconds...`);
-          await delay(RETRY_DELAY);
-        }
-        retryCount++;
-      }
-    }
-
-    // If we've exhausted all retries, throw the last error
-    throw new Error(
-      lastError?.response?.data?.message || 
-      lastError?.message || 
-      'Login failed after multiple attempts. Please try again later.'
-    );
-  }
-
-  public async logout(): Promise<void> {
-    try {
-      // Try to call the server logout endpoint if it exists
-      try {
-        await axios.post(`${API_URL}/auth/logout`);
-      } catch (error: any) {
-        // If the endpoint doesn't exist (404) or there's a network error,
-        // just log it and continue with local logout
-        console.log('Server logout unavailable:', error.message);
-      }
-    } finally {
-      // Always clear local auth state regardless of server response
-      this.clearAuth();
-      
-      // Redirect to login page
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = `${FRONTEND_URL}/login`;
-      }
-    }
   }
 
   public getToken(): string | null {
