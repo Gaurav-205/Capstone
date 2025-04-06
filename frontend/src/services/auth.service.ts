@@ -215,36 +215,36 @@ class AuthService {
 
   public async logout(): Promise<void> {
     try {
-      if (this.token) {
-        try {
-          // Use GET request for logout
-          await axios.get(`${API_URL}/auth/logout`, {
-            headers: { Authorization: `Bearer ${this.token}` }
-          });
-          console.log('Server logout successful');
-        } catch (error: any) {
-          // Log but don't throw - we'll still clear local state
-          console.log('Server logout failed (this is expected if session expired):', error.message);
-        }
-      }
-    } finally {
-      // Clear local state
+      console.log('Starting logout process...');
+      
+      // Clear all auth-related state
       this.clearAuth();
       
-      // Remove all axios interceptors
+      // Remove interceptors
       if (this.requestInterceptor !== null) {
         axios.interceptors.request.eject(this.requestInterceptor);
+        this.requestInterceptor = null;
       }
       if (this.responseInterceptor !== null) {
         axios.interceptors.response.eject(this.responseInterceptor);
+        this.responseInterceptor = null;
       }
       
       // Reset axios defaults
       delete axios.defaults.headers.common['Authorization'];
       
-      // Redirect if not already on login page
+      console.log('Logout successful, redirecting to login page...');
+      
+      // Use window.location.replace for a clean redirect
       if (!window.location.pathname.includes('/login')) {
-        window.location.href = `${FRONTEND_URL}/login?message=logged_out`;
+        window.location.replace(`${FRONTEND_URL}/login?message=logged_out`);
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Force logout even if there's an error
+      localStorage.clear();
+      if (!window.location.pathname.includes('/login')) {
+        window.location.replace(`${FRONTEND_URL}/login?error=logout_error`);
       }
     }
   }
@@ -271,11 +271,25 @@ class AuthService {
   }
 
   private clearAuth() {
+    console.log('Clearing auth state...');
+    
+    // Clear instance variables
     this.token = null;
     this.user = null;
+    
+    // Clear all auth-related items from localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    
+    // Clear any other potential auth-related items
+    localStorage.removeItem('authState');
+    localStorage.removeItem('session');
+    
+    // Reset axios defaults while maintaining necessary settings
     delete axios.defaults.headers.common['Authorization'];
+    axios.defaults.withCredentials = true;
+    
+    console.log('Auth state cleared successfully');
   }
 
   public getToken(): string | null {
