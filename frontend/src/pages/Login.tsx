@@ -41,20 +41,36 @@ const Login: React.FC = () => {
     setIsLoading(true);
     setError('');
     try {
-      console.log('Submitting login form with:', { email: data.email });
+      console.log('Starting login process...');
+      console.log('API URL:', process.env.REACT_APP_API_URL);
+      console.log('Login data:', { email: data.email, passwordLength: data.password?.length });
+      
       await login(data.email, data.password);
+      console.log('Login successful, checking user role...');
+      
       // Check localStorage for user role after login
       const userStr = localStorage.getItem('user');
       if (userStr) {
         const user = JSON.parse(userStr);
+        console.log('User role:', user.role);
         if (user.role === 'admin') {
+          console.log('Navigating to admin dashboard...');
           navigate('/admin/dashboard');
         } else {
+          console.log('Navigating to user dashboard...');
           navigate('/dashboard');
         }
+      } else {
+        console.log('No user data found in localStorage');
+        setError('Login successful but user data not found');
       }
     } catch (err: any) {
-      console.error('Login error:', err);
+      console.error('Login error details:', {
+        error: err,
+        response: err.response,
+        message: err.message,
+        status: err.response?.status
+      });
       setError(err.response?.data?.message || err.message || 'An error occurred during login');
     } finally {
       setIsLoading(false);

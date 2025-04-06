@@ -6,6 +6,37 @@ const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:300
 // Configure axios defaults
 axios.defaults.withCredentials = true;
 
+// Add request logging
+axios.interceptors.request.use(request => {
+  console.log('Starting Request:', {
+    url: request.url,
+    method: request.method,
+    headers: request.headers,
+    data: request.data
+  });
+  return request;
+});
+
+// Add response logging
+axios.interceptors.response.use(
+  response => {
+    console.log('Response:', {
+      status: response.status,
+      headers: response.headers,
+      data: response.data
+    });
+    return response;
+  },
+  error => {
+    console.error('Response Error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    return Promise.reject(error);
+  }
+);
+
 // Types
 export interface AuthResponse {
   success: boolean;
@@ -152,19 +183,30 @@ class AuthService {
         withCredentials: true,
         headers: {
           'Content-Type': 'application/json',
-        }
+          'Accept': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        timeout: 10000 // 10 second timeout
       });
+      
       console.log('Login response:', response.data);
       const { token, user } = response.data;
+      
       if (!token || !user) {
+        console.error('Invalid response structure:', response.data);
         throw new Error('Invalid response from server');
       }
+      
+      console.log('Setting auth with token and user:', { token: token.substring(0, 10) + '...', user });
       this.setAuth(token, user);
       return response.data;
     } catch (error: any) {
-      console.error('Login error:', error);
-      console.error('Response data:', error.response?.data);
-      console.error('Response status:', error.response?.status);
+      console.error('Login error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      });
       throw error;
     }
   }
