@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://kampuskart.onrender.com/api';
 const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3000';
 
 // Configure axios defaults
@@ -8,26 +8,11 @@ axios.defaults.withCredentials = true;
 axios.defaults.timeout = 30000; // 30 seconds default timeout
 
 // Retry configuration
-const MAX_RETRIES = 5;
-const RETRY_DELAY = 5000;
-const HEALTH_CHECK_TIMEOUT = 10000;
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000;
 
 // Helper function to delay execution
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Helper function to check server health
-const checkServerHealth = async () => {
-  try {
-    // Try a simple GET request to the root API endpoint
-    const response = await axios.get(`${API_URL}`, {
-      timeout: HEALTH_CHECK_TIMEOUT
-    });
-    return response.status === 200;
-  } catch (error: any) {
-    console.log('Server health check failed:', error.message);
-    return false;
-  }
-};
 
 // Add request logging
 axios.interceptors.request.use(request => {
@@ -192,43 +177,65 @@ class AuthService {
   }
 
   public async login(loginData: LoginData): Promise<AuthResponse> {
+    console.log('Starting login process...');
+    console.log('API URL:', API_URL);
+    console.log('Login data:', { email: loginData.email, passwordLength: loginData?.password?.length });
+
     let retryCount = 0;
+    let lastError: any = null;
+
     while (retryCount < MAX_RETRIES) {
       try {
-        // Check server health before attempting login
-        const isHealthy = await checkServerHealth();
-        if (!isHealthy) {
-          console.log(`Server health check failed, attempt ${retryCount + 1}/${MAX_RETRIES}`);
-          await delay(RETRY_DELAY);
-          retryCount++;
-          continue;
-        }
-
+        console.log(`Attempting login (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
         const response = await axios.post<AuthResponse>(`${API_URL}/auth/login`, loginData);
         const { token, user } = response.data;
         this.setAuth(token, user);
+        console.log('Login successful');
         return response.data;
       } catch (error: any) {
-        if (retryCount === MAX_RETRIES - 1) {
-          throw new Error(
-            `Login failed after ${MAX_RETRIES} attempts. ${error.response?.data?.message || error.message}`
-          );
+        lastError = error;
+        console.error(`Login attempt ${retryCount + 1} failed:`, error.response?.data || error.message);
+
+        // If we get a 401 or 404, don't retry as these are "valid" responses
+        if (error.response?.status === 401 || error.response?.status === 404) {
+          throw new Error(error.response?.data?.message || 'Invalid credentials');
         }
-        console.log(`Login attempt ${retryCount + 1} failed, retrying...`);
-        await delay(RETRY_DELAY);
+
+        // For network errors or 5xx errors, retry
+        if (retryCount < MAX_RETRIES - 1) {
+          console.log(`Retrying in ${RETRY_DELAY/1000} seconds...`);
+          await delay(RETRY_DELAY);
+        }
         retryCount++;
       }
     }
-    throw new Error('Login failed: Maximum retry attempts exceeded');
+
+    // If we've exhausted all retries, throw the last error
+    throw new Error(
+      lastError?.response?.data?.message || 
+      lastError?.message || 
+      'Login failed after multiple attempts. Please try again later.'
+    );
   }
 
   public async logout(): Promise<void> {
     try {
-      await axios.post(`${API_URL}/auth/logout`);
-    } catch (error) {
-      console.error('Logout error:', error);
+      // Try to call the server logout endpoint if it exists
+      try {
+        await axios.post(`${API_URL}/auth/logout`);
+      } catch (error: any) {
+        // If the endpoint doesn't exist (404) or there's a network error,
+        // just log it and continue with local logout
+        console.log('Server logout unavailable:', error.message);
+      }
     } finally {
+      // Always clear local auth state regardless of server response
       this.clearAuth();
+      
+      // Redirect to login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = `${FRONTEND_URL}/login`;
+      }
     }
   }
 
