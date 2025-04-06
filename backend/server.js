@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const cleanupFeedback = require('./utils/feedbackCleanup');
+const passport = require('passport');
+require('./config/passport');
 
 const app = express();
 
@@ -15,13 +17,18 @@ const corsOptions = {
   maxAge: 86400 // 24 hours
 };
 
-// Middleware
+// Apply CORS before any routes
 app.use(cors(corsOptions));
 
 // Handle preflight requests
 app.options('*', cors(corsOptions));
 
+// Initialize passport
+app.use(passport.initialize());
+
+// Body parser middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Debug middleware to log all requests
 app.use((req, res, next) => {
@@ -53,7 +60,7 @@ const authRoutes = require('./routes/authRoutes');
 console.log('Registering routes...');
 app.use('/api/profile', profileRoutes);
 app.use('/api/feedback', feedbackRoutes);
-app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 
 // Test route
 app.get('/api/test', (req, res) => {
