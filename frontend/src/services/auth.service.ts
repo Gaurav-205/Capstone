@@ -217,8 +217,8 @@ class AuthService {
     try {
       if (this.token) {
         try {
-          // Attempt to logout from server using the correct endpoint
-          await axios.post(`${API_URL}/auth/logout`, {}, {
+          // Use GET request for logout
+          await axios.get(`${API_URL}/auth/logout`, {
             headers: { Authorization: `Bearer ${this.token}` }
           });
           console.log('Server logout successful');
