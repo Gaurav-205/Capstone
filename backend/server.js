@@ -6,8 +6,16 @@ const cleanupFeedback = require('./utils/feedbackCleanup');
 
 const app = express();
 
+// CORS configuration
+const corsOptions = {
+  origin: ['https://ulifetesting.netlify.app', 'http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Debug middleware to log all requests
