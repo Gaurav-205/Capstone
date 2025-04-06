@@ -18,40 +18,55 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// Configure Google Strategy
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: 'https://capstone-gn7m.onrender.com/api/auth/google/callback',
-    proxy: true
-  },
-  async function(accessToken, refreshToken, profile, done) {
-    try {
-      // Check if user already exists
-      let user = await User.findOne({ 
-        $or: [
-          { googleId: profile.id },
-          { email: profile.emails[0].value }
-        ]
-      });
-      
-      if (!user) {
-        // Create new user if doesn't exist
+// Google OAuth Strategy
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+      proxy: true
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        console.log('Google profile:', {
+          id: profile.id,
+          email: profile.emails?.[0]?.value,
+          name: profile.displayName
+        });
+
+        // Check if user already exists
+        let user = await User.findOne({
+          $or: [
+            { googleId: profile.id },
+            { email: profile.emails?.[0]?.value }
+          ]
+        });
+
+        if (user) {
+          // If user exists but doesn't have googleId (registered with email)
+          if (!user.googleId) {
+            user.googleId = profile.id;
+            await user.save();
+          }
+          console.log('Existing user found:', user);
+          return done(null, { ...user.toObject(), needsPassword: !user.hasSetPassword });
+        }
+
+        // If not, create new user
         user = await User.create({
           googleId: profile.id,
-          email: profile.emails[0].value,
           name: profile.displayName,
-          picture: profile.photos?.[0]?.value
+          email: profile.emails?.[0]?.value,
+          hasSetPassword: false
         });
-      } else if (!user.googleId) {
-        // If user exists but doesn't have googleId (registered with email)
-        user.googleId = profile.id;
-        await user.save();
+
+        console.log('New user created:', user);
+        done(null, { ...user.toObject(), needsPassword: true });
+      } catch (error) {
+        console.error('Google strategy error:', error);
+        done(error, null);
       }
-      
-      return done(null, user);
-    } catch (error) {
-      return done(error, null);
     }
-  }
-)); 
+  )
+); 
