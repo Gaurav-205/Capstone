@@ -6,7 +6,8 @@ const User = require('../models/User');
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "http://localhost:5000/api/auth/google/callback"
+    callbackURL: `${process.env.BACKEND_URL || 'https://kampuskart.onrender.com'}/api/auth/google/callback`,
+    proxy: true
   },
   async function(accessToken, refreshToken, profile, done) {
     try {
@@ -52,8 +53,8 @@ exports.googleLogin = passport.authenticate('google', {
 
 // Google callback route handler
 exports.googleCallback = passport.authenticate('google', {
-  failureRedirect: '/login',
-  successRedirect: 'http://localhost:3000'
+  failureRedirect: `${process.env.FRONTEND_URL || 'https://kampuskart.netlify.app'}/login?error=google_auth_failed`,
+  successRedirect: `${process.env.FRONTEND_URL || 'https://kampuskart.netlify.app'}/dashboard`
 });
 
 // Get current user
