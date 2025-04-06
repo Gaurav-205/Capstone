@@ -6,15 +6,17 @@ const User = require('../models/User');
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: `${process.env.BACKEND_URL || 'https://kampuskart.onrender.com'}/api/auth/google/callback`,
+    callbackURL: 'https://kampuskart.onrender.com/api/auth/google/callback',
     proxy: true
   },
   async function(accessToken, refreshToken, profile, done) {
     try {
+      console.log('Google OAuth callback received:', { profileId: profile.id });
       // Check if user already exists
       let user = await User.findOne({ googleId: profile.id });
       
       if (!user) {
+        console.log('Creating new user from Google profile');
         // Create new user if doesn't exist
         user = await User.create({
           googleId: profile.id,
@@ -24,8 +26,10 @@ passport.use(new GoogleStrategy({
         });
       }
       
+      console.log('User authenticated:', { userId: user._id });
       return done(null, user);
     } catch (error) {
+      console.error('Google OAuth error:', error);
       return done(error, null);
     }
   }
@@ -48,14 +52,34 @@ passport.deserializeUser(async (id, done) => {
 
 // Google login route handler
 exports.googleLogin = passport.authenticate('google', {
-  scope: ['profile', 'email']
+  scope: ['profile', 'email'],
+  prompt: 'select_account'
 });
 
 // Google callback route handler
-exports.googleCallback = passport.authenticate('google', {
-  failureRedirect: `${process.env.FRONTEND_URL || 'https://kampuskart.netlify.app'}/login?error=google_auth_failed`,
-  successRedirect: `${process.env.FRONTEND_URL || 'https://kampuskart.netlify.app'}/dashboard`
-});
+exports.googleCallback = (req, res, next) => {
+  passport.authenticate('google', (err, user) => {
+    if (err) {
+      console.error('Google callback error:', err);
+      return res.redirect('https://kampuskart.netlify.app/login?error=' + encodeURIComponent(err.message));
+    }
+    
+    if (!user) {
+      console.error('No user returned from Google');
+      return res.redirect('https://kampuskart.netlify.app/login?error=auth_failed');
+    }
+
+    req.logIn(user, (err) => {
+      if (err) {
+        console.error('Login error:', err);
+        return res.redirect('https://kampuskart.netlify.app/login?error=login_failed');
+      }
+
+      console.log('User logged in successfully:', { userId: user._id });
+      return res.redirect('https://kampuskart.netlify.app/dashboard');
+    });
+  })(req, res, next);
+};
 
 // Get current user
 exports.getCurrentUser = (req, res) => {
