@@ -26,6 +26,7 @@ const schema = yup.object().shape({
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   
   const {
@@ -37,7 +38,10 @@ const Login: React.FC = () => {
   });
 
   const onSubmit = async (data: LoginData) => {
+    setIsLoading(true);
+    setError('');
     try {
+      console.log('Submitting login form with:', { email: data.email });
       await login(data.email, data.password);
       // Check localStorage for user role after login
       const userStr = localStorage.getItem('user');
@@ -50,7 +54,10 @@ const Login: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred');
+      console.error('Login error:', err);
+      setError(err.response?.data?.message || err.message || 'An error occurred during login');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -191,6 +198,7 @@ const Login: React.FC = () => {
                 {...register('email')}
                 error={!!errors.email}
                 helperText={errors.email?.message}
+                disabled={isLoading}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     bgcolor: '#F8F9FA',
@@ -208,6 +216,7 @@ const Login: React.FC = () => {
                 {...register('password')}
                 error={!!errors.password}
                 helperText={errors.password?.message}
+                disabled={isLoading}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     bgcolor: '#F8F9FA',
@@ -234,20 +243,21 @@ const Login: React.FC = () => {
               </Box>
 
               <Button
-                fullWidth
                 type="submit"
                 variant="contained"
-                size="large"
+                disabled={isLoading}
                 sx={{
-                  bgcolor: '#4CAF50',
-                  color: '#fff',
                   py: 1.5,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(25, 118, 210, 0.25)',
                   '&:hover': {
-                    bgcolor: '#388E3C',
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
                   },
                 }}
               >
-                Login
+                {isLoading ? 'Logging in...' : 'Login'}
               </Button>
 
               <Box sx={{ position: 'relative', my: 1 }}>

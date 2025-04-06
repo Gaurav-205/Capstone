@@ -3,6 +3,9 @@ import axios from 'axios';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3000';
 
+// Configure axios defaults
+axios.defaults.withCredentials = true;
+
 // Types
 export interface AuthResponse {
   success: boolean;
@@ -144,7 +147,14 @@ class AuthService {
 
   public async login(data: LoginData): Promise<AuthResponse> {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, data);
+      console.log('Attempting login with API URL:', API_URL);
+      const response = await axios.post(`${API_URL}/auth/login`, data, {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      console.log('Login response:', response.data);
       const { token, user } = response.data;
       if (!token || !user) {
         throw new Error('Invalid response from server');
@@ -152,7 +162,9 @@ class AuthService {
       this.setAuth(token, user);
       return response.data;
     } catch (error: any) {
-      console.error('Login error:', error.response?.data || error);
+      console.error('Login error:', error);
+      console.error('Response data:', error.response?.data);
+      console.error('Response status:', error.response?.status);
       throw error;
     }
   }
