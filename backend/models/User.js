@@ -85,7 +85,8 @@ const userSchema = new mongoose.Schema({
     }
   },
   password: {
-    type: String
+    type: String,
+    select: false  // This ensures password is not included by default in queries
   },
   hasSetPassword: {
     type: Boolean,

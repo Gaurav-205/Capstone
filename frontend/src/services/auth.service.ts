@@ -1,6 +1,6 @@
 import axios from 'axios';
+import { API_URL } from '../config';
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://kampuskart.onrender.com/api';
 const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3000';
 
 // Configure axios defaults
@@ -59,13 +59,8 @@ axios.interceptors.response.use(
 export interface AuthResponse {
   success: boolean;
   token: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    hasSetPassword: boolean;
-    role?: 'admin' | 'user' | 'student';
-  };
+  user: User;
+  message?: string;
 }
 
 export interface LoginData {
@@ -77,6 +72,9 @@ export interface SignupData {
   name: string;
   email: string;
   password: string;
+  confirmPassword?: string;
+  phone?: string;
+  role?: 'user' | 'admin' | 'student';
 }
 
 export interface ResetPasswordResponse {
@@ -89,10 +87,20 @@ export interface SetPasswordResponse {
   message: string;
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'user' | 'admin' | 'student';
+  phone?: string;
+  avatar?: string;
+  hasSetPassword: boolean;
+}
+
 class AuthService {
   private static instance: AuthService;
   private token: string | null = null;
-  private user: AuthResponse['user'] | null = null;
+  private user: User | null = null;
   private requestInterceptor: number | null = null;
   private responseInterceptor: number | null = null;
 
@@ -160,6 +168,64 @@ class AuthService {
         return Promise.reject(error);
       }
     );
+  }
+
+  private validateSignupData(data: SignupData): string[] {
+    const errors: string[] = [];
+
+    // Name validation
+    if (!data.name || data.name.trim().length < 2) {
+      errors.push('Name must be at least 2 characters long');
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!data.email || !emailRegex.test(data.email)) {
+      errors.push('Please enter a valid email address');
+    }
+
+    // Password validation
+    if (!data.password || data.password.length < 8) {
+      errors.push('Password must be at least 8 characters long');
+    }
+    if (!/[A-Z]/.test(data.password)) {
+      errors.push('Password must contain at least one uppercase letter');
+    }
+    if (!/[a-z]/.test(data.password)) {
+      errors.push('Password must contain at least one lowercase letter');
+    }
+    if (!/[0-9]/.test(data.password)) {
+      errors.push('Password must contain at least one number');
+    }
+    if (!/[!@#$%^&*]/.test(data.password)) {
+      errors.push('Password must contain at least one special character (!@#$%^&*)');
+    }
+
+    // Confirm password validation
+    if (data.password !== data.confirmPassword) {
+      errors.push('Passwords do not match');
+    }
+
+    // Phone validation (optional)
+    if (data.phone && !/^\d{10}$/.test(data.phone)) {
+      errors.push('Phone number must be 10 digits');
+    }
+
+    return errors;
+  }
+
+  private validateLoginData(data: LoginData): string[] {
+    const errors: string[] = [];
+
+    if (!data.email || !data.email.includes('@')) {
+      errors.push('Please enter a valid email address');
+    }
+
+    if (!data.password) {
+      errors.push('Password is required');
+    }
+
+    return errors;
   }
 
   public async login(loginData: LoginData): Promise<AuthResponse> {
@@ -249,7 +315,7 @@ class AuthService {
     }
   }
 
-  private setAuth(token: string, user: AuthResponse['user']) {
+  private setAuth(token: string, user: User) {
     try {
       // Clear any existing auth first
       this.clearAuth();
@@ -296,7 +362,7 @@ class AuthService {
     return this.token;
   }
 
-  public getUser(): AuthResponse['user'] | null {
+  public getUser(): User | null {
     return this.user;
   }
 
@@ -317,7 +383,7 @@ class AuthService {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       // Get user data using the token
-      const response = await axios.get(`${API_URL}/auth/me`);
+      const response = await axios.get<User>(`${API_URL}/auth/me`);
       
       if (!response.data) {
         throw new Error('Authentication failed: Unable to retrieve user information');
@@ -326,12 +392,12 @@ class AuthService {
       // Set auth state with token and user data
       this.setAuth(token, response.data);
       
-      // Check if user needs to set password
+      // Only redirect to password setup if user hasn't set password
       if (!response.data.hasSetPassword) {
         console.log('User needs to set password, redirecting to password setup');
         window.location.replace(`${FRONTEND_URL}/set-password`);
       } else {
-        console.log('Google authentication successful, redirecting to dashboard');
+        console.log('User already has password set, redirecting to dashboard');
         window.location.replace(`${FRONTEND_URL}/dashboard`);
       }
     } catch (error: any) {
@@ -369,12 +435,34 @@ class AuthService {
 
   public async signup(signupData: SignupData): Promise<AuthResponse> {
     try {
-      const response = await axios.post<AuthResponse>(`${API_URL}/auth/signup`, signupData);
-      const { token, user } = response.data;
-      this.setAuth(token, user);
-      return response.data;
+      // Validate signup data
+      const validationErrors = this.validateSignupData(signupData);
+      if (validationErrors.length > 0) {
+        throw new Error(validationErrors.join('\n'));
+      }
+
+      // Remove confirmPassword before sending to API
+      const { confirmPassword, ...signupDataWithoutConfirm } = signupData;
+      
+      const response = await axios.post<AuthResponse>(`${API_URL}/auth/signup`, signupDataWithoutConfirm);
+      
+      if (response.data.success) {
+        this.setAuth(response.data.token, response.data.user);
+        return response.data;
+      } else {
+        throw new Error(response.data.message || 'Signup failed');
+      }
     } catch (error: any) {
-      throw new Error(`Signup failed: ${error.response?.data?.message || error.message}`);
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error.response?.status === 409) {
+        throw new Error('An account with this email already exists');
+      } else if (error.response?.status === 422) {
+        throw new Error('Invalid data provided. Please check your input.');
+      } else if (error.response?.status === 500) {
+        throw new Error('Server error. Please try again later.');
+      }
+      throw error;
     }
   }
 
@@ -445,7 +533,7 @@ class AuthService {
     }
   }
 
-  public getCurrentUser(): AuthResponse['user'] | null {
+  public getCurrentUser(): User | null {
     return this.user;
   }
 }

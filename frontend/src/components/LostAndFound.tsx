@@ -96,65 +96,20 @@ const locations = [
   'Other Areas'
 ];
 
-// Sample data
-const initialItems: Item[] = [
-  {
-    id: '1',
-    title: 'Black Laptop Bag',
-    description: 'Dell laptop bag with charger inside',
-    category: 'Electronics',
-    location: 'Library',
-    date: '2024-03-20',
-    status: 'lost',
-    contactName: 'John Doe',
-    contactEmail: 'john@example.com',
-    contactPhone: '1234567890',
-    isResolved: false,
-    createdAt: '2024-03-20T12:00:00',
-    updatedAt: '2024-03-20T12:00:00',
-    userId: 'user1'
-  },
-  {
-    id: '2',
-    title: 'Student ID Card',
-    description: 'Found near cafeteria entrance',
-    category: 'ID Cards',
-    location: 'Cafeteria',
-    date: '2024-03-21',
-    status: 'found',
-    contactName: 'Jane Smith',
-    contactEmail: 'jane@example.com',
-    contactPhone: '9876543210',
-    isResolved: false,
-    createdAt: '2024-03-21T12:00:00',
-    updatedAt: '2024-03-21T12:00:00',
-    userId: 'user2'
-  }
-];
-
-const getExpiryInfo = (item: Item): { timeLeft: string; isExpiringSoon: boolean } => {
-  const currentTime = new Date().getTime();
-  const itemDate = new Date(item.updatedAt).getTime();
+const getExpiryInfo = (item: Item) => {
+  const createdDate = new Date(item.createdAt);
+  const expiryDate = new Date(createdDate.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from creation
+  const now = new Date();
+  const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   
-  if (item.isResolved) {
-    const expiryTime = itemDate + (24 * 60 * 60 * 1000);
-    const hoursLeft = Math.max(0, Math.ceil((expiryTime - currentTime) / (60 * 60 * 1000)));
-    return {
-      timeLeft: `${hoursLeft} hours until removal`,
-      isExpiringSoon: hoursLeft <= 6
-    };
-  } else {
-    const expiryTime = itemDate + (15 * 24 * 60 * 60 * 1000);
-    const daysLeft = Math.max(0, Math.ceil((expiryTime - currentTime) / (24 * 60 * 60 * 1000)));
-    return {
-      timeLeft: `${daysLeft} days until removal`,
-      isExpiringSoon: daysLeft <= 2
-    };
-  }
+  return {
+    timeLeft: daysLeft > 0 ? `${daysLeft} days left` : 'Expired',
+    isExpiringSoon: daysLeft > 0 && daysLeft <= 5
+  };
 };
 
 const LostAndFound: React.FC = () => {
-  const [items, setItems] = useState<Item[]>(initialItems);
+  const [items, setItems] = useState<Item[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -175,7 +130,8 @@ const LostAndFound: React.FC = () => {
     contactPhone: '',
     date: new Date().toISOString().split('T')[0]
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<LostFoundStats | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -230,15 +186,15 @@ const LostAndFound: React.FC = () => {
       setTotalPages(Math.max(1, response.data.totalPages));
       setTotalItems(response.data.totalItems);
       
-      // Reset to page 1 if current page is beyond total pages
       if (currentPage > response.data.totalPages && response.data.totalPages > 0) {
         setCurrentPage(1);
       }
-    } catch (err) {
-      setError('Failed to fetch items. Please try again later.');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to fetch items. Please try again later.');
       console.error('Error fetching items:', err);
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -252,8 +208,13 @@ const LostAndFound: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchItems();
-    fetchStats();
+    const initializeData = async () => {
+      setInitialLoading(true);
+      await Promise.all([fetchItems(), fetchStats()]);
+      setInitialLoading(false);
+    };
+
+    initializeData();
   }, []);
 
   useEffect(() => {
@@ -352,6 +313,26 @@ const LostAndFound: React.FC = () => {
     
     return matchesSearch && matchesCategory && matchesStatus && matchesTab;
   });
+
+  if (initialLoading) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          height: '100vh',
+          bgcolor: '#f8fafc'
+        }}
+      >
+        <CircularProgress size={40} />
+        <Typography variant="body1" sx={{ mt: 2, color: 'text.secondary' }}>
+          Loading Lost & Found items...
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3, bgcolor: '#f8fafc', minHeight: '100vh' }}>
@@ -479,6 +460,35 @@ const LostAndFound: React.FC = () => {
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
+      )}
+
+      {/* Show empty state when no items and not loading */}
+      {!loading && items.length === 0 && !error && (
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            py: 8
+          }}
+        >
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            No items found
+          </Typography>
+          <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 3 }}>
+            {searchQuery || selectedCategory || selectedStatus !== 'all' 
+              ? 'Try adjusting your search filters'
+              : 'Be the first to report a lost or found item'}
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+          >
+            Report Item
+          </Button>
+        </Box>
       )}
 
       {/* Items Grid */}

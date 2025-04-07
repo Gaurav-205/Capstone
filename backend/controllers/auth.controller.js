@@ -16,8 +16,17 @@ exports.signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
+    // Validate input
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Please provide all required fields' });
+    }
+
+    // Validate password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+      });
     }
 
     // Check if user exists
@@ -34,7 +43,11 @@ exports.signup = async (req, res) => {
       hasSetPassword: true
     });
 
+    // Generate token
     const token = createToken(user._id);
+
+    // Log successful signup
+    console.log('Signup successful for user:', email);
 
     res.status(201).json({
       success: true,
@@ -43,7 +56,8 @@ exports.signup = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        hasSetPassword: user.hasSetPassword
+        hasSetPassword: user.hasSetPassword,
+        role: user.role || 'user'
       }
     });
   } catch (error) {
@@ -64,10 +78,15 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
 
-    // Check if user exists and include password for comparison
+    // Check if user exists and explicitly include password for comparison
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    // Check if user has set a password
+    if (!user.hasSetPassword) {
+      return res.status(401).json({ message: 'Please set your password first' });
     }
 
     // Check password using the model's method
@@ -84,6 +103,9 @@ exports.login = async (req, res) => {
 
     // Generate token
     const token = createToken(user._id);
+
+    // Log successful login
+    console.log('Login successful for user:', email);
 
     res.status(200).json({
       success: true,

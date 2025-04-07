@@ -8,10 +8,18 @@ const LOST_FOUND_API_URL = `${API_URL}/lost-found`;
 axios.defaults.baseURL = API_URL;
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
-// Add request interceptor to include auth token
+// Add request interceptor to include auth token and check authentication
 axios.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    const isAuthEndpoint = config.url?.includes('/auth/');
+    
+    if (!token && !isAuthEndpoint) {
+      // Redirect to login if no token and not an auth endpoint
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      throw new Error('Authentication required');
+    }
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -22,24 +30,52 @@ axios.interceptors.request.use(
   }
 );
 
+interface ErrorResponse {
+  message?: string;
+  errors?: string[];
+}
+
 // Add response interceptor for error handling
 axios.interceptors.response.use(
   response => response,
-  (error: AxiosError) => {
+  (error: AxiosError<ErrorResponse>) => {
     if (error.response) {
-      // Handle 401 Unauthorized errors
-      if (error.response.status === 401) {
-        // Redirect to login or handle unauthorized access
-        window.location.href = '/login';
+      // Handle specific error cases
+      switch (error.response.status) {
+        case 401:
+          // Clear token and redirect to login on unauthorized
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+          return Promise.reject(new Error('Your session has expired. Please log in again.'));
+        
+        case 403:
+          return Promise.reject(new Error('You do not have permission to perform this action.'));
+        
+        case 404:
+          return Promise.reject(new Error('The requested resource was not found.'));
+        
+        case 422:
+          // Handle validation errors
+          const validationErrors = error.response.data?.errors;
+          if (validationErrors && Array.isArray(validationErrors)) {
+            return Promise.reject(new Error(validationErrors.join(', ')));
+          }
+          return Promise.reject(new Error('Invalid data provided.'));
+        
+        case 429:
+          return Promise.reject(new Error('Too many requests. Please try again later.'));
+        
+        case 500:
+          return Promise.reject(new Error('An internal server error occurred. Please try again later.'));
+        
+        default:
+          return Promise.reject(new Error(error.response.data?.message || 'An unexpected error occurred'));
       }
-      console.error('Response Error:', error.response.data);
-      return Promise.reject(error.response.data);
     } else if (error.request) {
-      console.error('Request Error:', error.request);
-      return Promise.reject({ message: 'No response from server' });
+      return Promise.reject(new Error('Unable to reach the server. Please check your internet connection.'));
     } else {
-      console.error('Error:', error.message);
-      return Promise.reject({ message: error.message });
+      return Promise.reject(new Error(error.message || 'An unexpected error occurred'));
     }
   }
 );
@@ -63,7 +99,7 @@ export interface LostFoundItem {
 }
 
 export interface LostFoundFilters {
-  status?: string;
+  status?: 'lost' | 'found';
   category?: string;
   location?: string;
   isResolved?: boolean;
@@ -77,16 +113,42 @@ export interface LostFoundStats {
   activeFoundItems: number;
   resolvedItems: number;
   categoryDistribution: Array<{
-    _id: string;
+    category: string;
     count: number;
   }>;
 }
 
-export interface ApiResponse<T> {
+interface ApiResponse<T> {
+  success: boolean;
   data: T;
   message?: string;
-  errors?: string[];
 }
+
+// Helper function to handle API errors with better messages
+const handleApiError = (error: unknown): never => {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError<{ message: string; errors?: string[] }>;
+    
+    // Handle validation errors
+    if (axiosError.response?.status === 422 && axiosError.response.data?.errors) {
+      throw new Error(axiosError.response.data.errors.join(', '));
+    }
+    
+    // Handle other errors
+    throw new Error(
+      axiosError.response?.data?.message ||
+      axiosError.message ||
+      'An unexpected error occurred'
+    );
+  }
+  
+  // Handle non-axios errors
+  if (error instanceof Error) {
+    throw error;
+  }
+  
+  throw new Error('An unexpected error occurred');
+};
 
 const getLoggedInUserId = () => {
   const token = localStorage.getItem('token');
@@ -126,50 +188,34 @@ export const lostFoundService = {
   // Helper function to check if current user owns an item
   isItemOwner: (item: LostFoundItem): boolean => {
     const currentUserId = getLoggedInUserId();
-    console.log('Ownership check:', {
-      itemId: item.id,
-      itemUserId: item.userId,
-      currentUserId: currentUserId,
-      token: localStorage.getItem('token'),
-      isMatch: currentUserId === item.userId
-    });
+    if (!currentUserId) {
+      return false;
+    }
     return currentUserId === item.userId;
   },
 
-  // Get all items with filtering
-  getItems: async (filters: LostFoundFilters): Promise<ApiResponse<{
-    items: LostFoundItem[];
-    currentPage: number;
-    totalPages: number;
-    totalItems: number;
-  }>> => {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== '') {
-        params.append(key, value.toString());
+  // Get items with filters
+  getItems: async (filters: LostFoundFilters): Promise<ApiResponse<{ items: LostFoundItem[]; totalPages: number; totalItems: number }>> => {
+    try {
+      if (!localStorage.getItem('token')) {
+        throw new Error('Authentication required');
       }
-    });
-    const response = await axios.get(`${LOST_FOUND_API_URL}?${params.toString()}`);
-    
-    // Filter out expired items on the frontend
-    const filteredItems = response.data.data.items.filter((item: LostFoundItem) => !isItemExpired(item));
-    
-    // Update pagination numbers based on filtered items
-    const totalItems = filteredItems.length;
-    const itemsPerPage = filters.limit || 9;
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-    const currentPage = Math.min(filters.page || 1, totalPages);
-    const start = (currentPage - 1) * itemsPerPage;
-    const paginatedItems = filteredItems.slice(start, start + itemsPerPage);
 
-    return {
-      data: {
-        items: paginatedItems,
-        currentPage,
-        totalPages,
-        totalItems
-      }
-    };
+      const queryParams = new URLSearchParams();
+      
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.category) queryParams.append('category', filters.category);
+      if (filters.location) queryParams.append('location', filters.location);
+      if (typeof filters.isResolved === 'boolean') queryParams.append('isResolved', String(filters.isResolved));
+      if (filters.search) queryParams.append('search', filters.search);
+      if (filters.page) queryParams.append('page', String(filters.page));
+      if (filters.limit) queryParams.append('limit', String(filters.limit));
+
+      const response = await axios.get(`${LOST_FOUND_API_URL}?${queryParams.toString()}`);
+      return response.data;
+    } catch (error) {
+      return handleApiError(error);
+    }
   },
 
   // Get single item
@@ -180,28 +226,64 @@ export const lostFoundService = {
 
   // Create new item
   createItem: async (item: Omit<LostFoundItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<LostFoundItem>> => {
-    console.log('Creating item with userId:', localStorage.getItem('userId'));
-    const response = await axios.post(LOST_FOUND_API_URL, item);
-    console.log('Create item response from server:', response.data);
-    return response.data;
+    try {
+      if (!localStorage.getItem('token')) {
+        throw new Error('Please log in to report an item');
+      }
+
+      // Validate required fields
+      const requiredFields = ['title', 'category', 'location', 'status', 'contactName', 'contactEmail'];
+      const missingFields = requiredFields.filter(field => !item[field as keyof typeof item]);
+      
+      if (missingFields.length > 0) {
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+      }
+
+      // Validate email format
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item.contactEmail)) {
+        throw new Error('Please enter a valid email address');
+      }
+
+      // Validate phone number if provided
+      if (item.contactPhone && !/^\d{10}$/.test(item.contactPhone)) {
+        throw new Error('Phone number must be 10 digits');
+      }
+
+      const response = await axios.post(LOST_FOUND_API_URL, item);
+      return response.data;
+    } catch (error) {
+      return handleApiError(error);
+    }
   },
 
   // Update item
   updateItem: async (id: string, item: Partial<LostFoundItem>): Promise<ApiResponse<LostFoundItem>> => {
-    const response = await axios.put(`${LOST_FOUND_API_URL}/${id}`, item);
-    return response.data;
+    try {
+      const response = await axios.put(`${LOST_FOUND_API_URL}/${id}`, item);
+      return response.data;
+    } catch (error) {
+      return handleApiError(error);
+    }
   },
 
   // Delete item
   deleteItem: async (id: string): Promise<ApiResponse<{ message: string }>> => {
-    const response = await axios.delete(`${LOST_FOUND_API_URL}/${id}`);
-    return response.data;
+    try {
+      const response = await axios.delete(`${LOST_FOUND_API_URL}/${id}`);
+      return response.data;
+    } catch (error) {
+      return handleApiError(error);
+    }
   },
 
   // Mark item as resolved
   markResolved: async (id: string): Promise<ApiResponse<LostFoundItem>> => {
-    const response = await axios.patch(`${LOST_FOUND_API_URL}/${id}/resolve`);
-    return response.data;
+    try {
+      const response = await axios.patch(`${LOST_FOUND_API_URL}/${id}/resolve`);
+      return response.data;
+    } catch (error) {
+      return handleApiError(error);
+    }
   },
 
   // Get statistics
@@ -229,8 +311,15 @@ export const lostFoundService = {
     }
   },
 
+  // Check if an item is expired
+  isItemExpired: (item: LostFoundItem): boolean => {
+    const createdDate = new Date(item.createdAt);
+    const expiryDate = new Date(createdDate.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from creation
+    return new Date() > expiryDate;
+  },
+
   // Add method to check if an item should be visible
   isItemVisible: (item: LostFoundItem): boolean => {
-    return !isItemExpired(item);
+    return !lostFoundService.isItemExpired(item);
   }
 }; 
