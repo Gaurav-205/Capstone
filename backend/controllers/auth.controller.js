@@ -14,58 +14,116 @@ const createToken = (id) => {
 // Register user
 exports.signup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, confirmPassword } = req.body;
 
-    // Validate input
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Please provide all required fields' });
-    }
+    // Log received data for debugging (excluding passwords)
+    console.log('Signup request received:', { name, email });
 
-    // Validate password strength
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(password)) {
+    // Basic validation
+    if (!name || !email || !password || !confirmPassword) {
       return res.status(400).json({
-        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+        success: false,
+        message: 'Please provide all required fields: name, email, password, and confirm password'
       });
     }
 
-    // Check if user exists
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ message: 'User already exists' });
+    // Check if passwords match
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already registered'
+      });
     }
 
     // Create new user
-    user = await User.create({
+    const user = new User({
       name,
-      email,
-      password,
-      hasSetPassword: true
+      email: email.toLowerCase(),
+      password
     });
 
-    // Generate token
-    const token = createToken(user._id);
+    // Save user - password hashing and validation will be handled by the User model
+    await user.save();
 
-    // Log successful signup
-    console.log('Signup successful for user:', email);
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
 
-    res.status(201).json({
+    // Set cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
+
+    // Return success response with user data (excluding sensitive information)
+    return res.status(201).json({
       success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        hasSetPassword: user.hasSetPassword,
-        role: user.role || 'user'
-      }
+      message: 'User registered successfully',
+      user: user.getPublicProfile(),
+      token: token
     });
+
   } catch (error) {
     console.error('Signup error:', error);
+
+    // Handle validation errors from mongoose
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ message: Object.values(error.errors).map(err => err.message).join(', ') });
+      const messages = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: {
+          validation: messages.join('. '),
+          details: error.errors
+        }
+      });
     }
-    res.status(500).json({ message: 'Server error during signup' });
+
+    // Handle duplicate key errors (e.g., duplicate email)
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is already registered',
+        errors: {
+          email: 'This email address is already in use'
+        }
+      });
+    }
+
+    // Handle password validation errors
+    if (error.name === 'PasswordValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Password validation failed',
+        errors: {
+          password: error.message
+        }
+      });
+    }
+
+    // Handle network/server errors
+    return res.status(500).json({
+      success: false,
+      message: 'An error occurred during registration',
+      errors: {
+        server: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }
+    });
   }
 };
 
@@ -74,25 +132,51 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Validate required fields
     if (!email || !password) {
-      return res.status(400).json({ message: 'Please provide email and password' });
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and password',
+        errors: {
+          email: !email ? 'Email is required' : null,
+          password: !password ? 'Password is required' : null
+        }
+      });
     }
 
-    // Check if user exists and explicitly include password for comparison
+    // Check if user exists and include password for comparison
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        errors: {
+          email: 'No account found with this email'
+        }
+      });
     }
 
     // Check if user has set a password
     if (!user.hasSetPassword) {
-      return res.status(401).json({ message: 'Please set your password first' });
+      return res.status(401).json({
+        success: false,
+        message: 'Password not set',
+        errors: {
+          password: 'Please set your password first'
+        }
+      });
     }
 
     // Check password using the model's method
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        errors: {
+          password: 'Incorrect password'
+        }
+      });
     }
 
     // Set admin role for specific emails
@@ -105,7 +189,7 @@ exports.login = async (req, res) => {
     const token = createToken(user._id);
 
     // Log successful login
-    console.log('Login successful for user:', email);
+    console.log('Login successful for:', email);
 
     res.status(200).json({
       success: true,
@@ -121,7 +205,11 @@ exports.login = async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error during login' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error during login',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
@@ -213,7 +301,24 @@ exports.setPassword = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Set the new password
+    // For Google users, automatically mark as having set password
+    if (user.googleId) {
+      user.hasSetPassword = true;
+      await user.save();
+      
+      return res.json({
+        success: true,
+        message: 'Password status updated for Google user',
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          hasSetPassword: user.hasSetPassword
+        }
+      });
+    }
+
+    // For non-Google users, set the new password
     user.password = password;
     user.hasSetPassword = true;
     await user.save();

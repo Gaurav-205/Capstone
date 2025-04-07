@@ -95,13 +95,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       const response = await authService.login({ email, password });
+      
+      if (!response.success) {
+        // If login was not successful, throw an error with the response details
+        const error = new Error(response.message || 'Login failed');
+        (error as any).response = { data: response };
+        throw error;
+      }
+      
       const normalizedUser = normalizeUser(response.user);
       setUser(normalizedUser);
       localStorage.setItem('user', JSON.stringify(normalizedUser));
     } catch (error) {
       console.error('Login failed:', error);
+      // Don't set loading to false here, let the component handle it
       throw error;
     } finally {
+      // We need to set loading to false in all cases
       setLoading(false);
     }
   };

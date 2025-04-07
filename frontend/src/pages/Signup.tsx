@@ -15,6 +15,7 @@ import {
 import { Google as GoogleIcon } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import authService, { SignupData } from '../services/auth.service';
+import { API_URL } from '../config';
 
 const schema = yup.object().shape({
   name: yup.string().required('Name is required'),
@@ -24,8 +25,8 @@ const schema = yup.object().shape({
     .required('Password is required')
     .min(8, 'Password must be at least 8 characters')
     .matches(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-      'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character'
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+      'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character (@$!%*?&)'
     ),
   confirmPassword: yup
     .string()
@@ -40,31 +41,168 @@ interface SignupFormData extends SignupData {
 const Signup: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string>('');
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting }
   } = useForm<SignupFormData>({
     resolver: yupResolver(schema)
   });
 
+  const password = watch('password');
+  const confirmPassword = watch('confirmPassword');
+
   const onSubmit = async (data: SignupFormData) => {
     try {
-      const { confirmPassword, ...signupData } = data;
-      await authService.signup(signupData);
-      navigate('/dashboard');
+      setError('');
+      console.log('Starting signup submission...');
+      console.log('Environment:', process.env.NODE_ENV);
+      console.log('Form data:', { ...data, password: '[REDACTED]' });
+
+      // Show loading state
+      const loadingMessage = document.createElement('div');
+      loadingMessage.style.position = 'fixed';
+      loadingMessage.style.top = '20px';
+      loadingMessage.style.left = '50%';
+      loadingMessage.style.transform = 'translateX(-50%)';
+      loadingMessage.style.backgroundColor = '#1976D2';
+      loadingMessage.style.color = 'white';
+      loadingMessage.style.padding = '10px 20px';
+      loadingMessage.style.borderRadius = '4px';
+      loadingMessage.style.zIndex = '9999';
+      loadingMessage.textContent = 'Creating your account...';
+      document.body.appendChild(loadingMessage);
+
+      const response = await authService.signup({
+        name: data.name.trim(),
+        email: data.email.toLowerCase().trim(),
+        password: data.password,
+        confirmPassword: data.confirmPassword
+      });
+      
+      // Remove loading message
+      document.body.removeChild(loadingMessage);
+      
+      console.log('Signup response:', {
+        success: response.success,
+        hasUser: !!response.user,
+        hasToken: !!response.token,
+        message: response.message,
+        errors: response.errors
+      });
+
+      if (!response.success) {
+        let errorMessage: string = response.message || 'An error occurred during signup';
+        
+        // Handle specific error types
+        if (response.errors) {
+          if (response.errors.email) {
+            errorMessage = 'This email is already registered. Please try logging in or use a different email.';
+          } else if (response.errors.password) {
+            errorMessage = 'Password does not meet the requirements. Please ensure it has at least 8 characters, including uppercase, lowercase, numbers, and special characters.';
+          } else if (response.errors.network) {
+            errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+          } else if (response.errors.server) {
+            errorMessage = `Server error: ${response.errors.server}`;
+            if (response.errors.details) {
+              console.error('Server error details:', response.errors.details);
+            }
+          } else if (response.errors.validation) {
+            errorMessage = String(response.errors.validation);
+          }
+        }
+        
+        setError(errorMessage);
+        
+        // Show error in a more visible way
+        const errorElement = document.createElement('div');
+        errorElement.style.position = 'fixed';
+        errorElement.style.top = '20px';
+        errorElement.style.left = '50%';
+        errorElement.style.transform = 'translateX(-50%)';
+        errorElement.style.backgroundColor = '#f44336';
+        errorElement.style.color = 'white';
+        errorElement.style.padding = '15px 25px';
+        errorElement.style.borderRadius = '4px';
+        errorElement.style.zIndex = '9999';
+        errorElement.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+        errorElement.textContent = errorMessage;
+        document.body.appendChild(errorElement);
+
+        // Remove error message after 5 seconds
+        setTimeout(() => {
+          document.body.removeChild(errorElement);
+        }, 5000);
+        
+        return;
+      }
+
+      // Check if user is authenticated
+      const isAuthenticated = authService.isAuthenticated();
+      console.log('Authentication status:', { isAuthenticated });
+
+      if (response.success && isAuthenticated) {
+        console.log('Signup successful, preparing to navigate...');
+        
+        // Show success message
+        const successMessage = document.createElement('div');
+        successMessage.style.position = 'fixed';
+        successMessage.style.top = '20px';
+        successMessage.style.left = '50%';
+        successMessage.style.transform = 'translateX(-50%)';
+        successMessage.style.backgroundColor = '#4CAF50';
+        successMessage.style.color = 'white';
+        successMessage.style.padding = '10px 20px';
+        successMessage.style.borderRadius = '4px';
+        successMessage.style.zIndex = '9999';
+        successMessage.textContent = 'Account created successfully! Redirecting...';
+        document.body.appendChild(successMessage);
+        
+        // Ensure the auth service has time to set up
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Double check authentication before navigating
+        if (authService.isAuthenticated()) {
+          console.log('Auth confirmed, navigating to dashboard...');
+          document.body.removeChild(successMessage);
+          navigate('/dashboard');
+          return;
+        } else {
+          console.log('Authentication status changed, now false');
+        }
+      }
+
+      // If we get here, something unexpected happened
+      console.log('Unexpected signup state, redirecting to login...');
+      setError('Account created but automatic login failed. Please try signing in manually.');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred');
+      console.error('Signup error:', err);
+      let errorMessage: string = 'An unexpected error occurred. Please try again.';
+      
+      if (err.response?.data?.message) {
+        errorMessage = String(err.response.data.message);
+      } else if (err.message) {
+        errorMessage = String(err.message);
+      }
+      
+      setError(errorMessage);
     }
   };
 
   const handleGoogleSignup = () => {
     try {
-      const backendUrl = process.env.REACT_APP_API_URL?.replace('/api', '');
-      const googleAuthUrl = `${backendUrl}/api/auth/google`;
+      const backendUrl = API_URL.replace('/api', '');
+      const googleAuthUrl = `${backendUrl}/auth/google`;
+      console.log('Redirecting to:', googleAuthUrl);
       window.location.href = googleAuthUrl;
     } catch (error) {
+      console.error('Google signup error:', error);
       setError('Failed to initiate Google signup');
     }
   };
@@ -229,8 +367,16 @@ const Signup: React.FC = () => {
                 label="Password"
                 {...register('password')}
                 error={!!errors.password}
-                helperText={errors.password?.message}
+                helperText={
+                  errors.password?.message || (
+                    showPasswordRequirements ? 
+                    'Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)' 
+                    : undefined
+                  )
+                }
                 disabled={isSubmitting}
+                onFocus={() => setShowPasswordRequirements(true)}
+                onBlur={() => setShowPasswordRequirements(false)}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     bgcolor: '#F8F9FA',
@@ -246,8 +392,8 @@ const Signup: React.FC = () => {
                 type="password"
                 label="Confirm Password"
                 {...register('confirmPassword')}
-                error={!!errors.confirmPassword}
-                helperText={errors.confirmPassword?.message}
+                error={Boolean(errors.confirmPassword || (password && confirmPassword && password !== confirmPassword))}
+                helperText={errors.confirmPassword?.message || (password && confirmPassword && password !== confirmPassword ? 'Passwords do not match' : undefined)}
                 disabled={isSubmitting}
                 sx={{
                   '& .MuiOutlinedInput-root': {

@@ -9,18 +9,20 @@ const app = express();
 // CORS configuration
 const corsOptions = {
   origin: [
-    process.env.CORS_ORIGIN || 'https://ulifetesting.netlify.app',
-    'http://localhost:3000'
+    'https://kampuskart.netlify.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
   ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 204
 };
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Debug middleware to log all requests
 app.use((req, res, next) => {

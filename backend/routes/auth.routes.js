@@ -51,11 +51,20 @@ router.get(
         expiresIn: process.env.JWT_EXPIRE
       });
 
-      // Create redirect URL with token
+      // Create redirect URL with token - Don't force password setup for Google auth users
       const redirectURL = new URL(`${process.env.FRONTEND_URL}/auth/callback`);
       redirectURL.searchParams.append('token', token);
-      redirectURL.searchParams.append('needsPassword', (!req.user.hasSetPassword).toString());
-
+      
+      // Always set needsPassword to false for Google users
+      redirectURL.searchParams.append('needsPassword', 'false');
+      
+      console.log('Google auth - User details:', {
+        id: req.user._id,
+        email: req.user.email,
+        hasSetPassword: req.user.hasSetPassword,
+        needsPassword: false  // Always false for Google auth
+      });
+      
       console.log('Redirecting to:', redirectURL.toString());
       res.redirect(redirectURL.toString());
     } catch (error) {

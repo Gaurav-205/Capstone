@@ -1,12 +1,11 @@
 import axios from 'axios';
-import { API_URL } from '../config';
-
-const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3000';
+import { API_URL, FRONTEND_URL } from '../config';
 
 // Configure axios defaults
 axios.defaults.withCredentials = true;
 axios.defaults.timeout = 30000; // 30 seconds default timeout
 axios.defaults.headers.common['Content-Type'] = 'application/json';
+axios.defaults.headers.common['Accept'] = 'application/json';
 
 // Retry configuration
 const MAX_RETRIES = 3;
@@ -58,9 +57,12 @@ axios.interceptors.response.use(
 // Types
 export interface AuthResponse {
   success: boolean;
-  token: string;
-  user: User;
+  token?: string;
+  user?: any;
   message?: string;
+  errors?: {
+    [key: string]: string;
+  };
 }
 
 export interface LoginData {
@@ -160,7 +162,10 @@ class AuthService {
         if (error.response?.status === 401) {
           // Clear auth and redirect only if not already on login page and not trying to login
           const isLoginRequest = error.config.url.includes('/login');
-          if (!isLoginRequest && !window.location.pathname.includes('/login')) {
+          const isLoginPage = window.location.pathname.includes('/login');
+          
+          // Only redirect if we're not already on the login page and not trying to login
+          if (!isLoginRequest && !isLoginPage) {
             this.clearAuth();
             window.location.href = `${FRONTEND_URL}/login?error=session_expired`;
           }
@@ -185,24 +190,17 @@ class AuthService {
     }
 
     // Password validation
-    if (!data.password || data.password.length < 8) {
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!data.password) {
+      errors.push('Password is required');
+    } else if (data.password.length < 8) {
       errors.push('Password must be at least 8 characters long');
-    }
-    if (!/[A-Z]/.test(data.password)) {
-      errors.push('Password must contain at least one uppercase letter');
-    }
-    if (!/[a-z]/.test(data.password)) {
-      errors.push('Password must contain at least one lowercase letter');
-    }
-    if (!/[0-9]/.test(data.password)) {
-      errors.push('Password must contain at least one number');
-    }
-    if (!/[!@#$%^&*]/.test(data.password)) {
-      errors.push('Password must contain at least one special character (!@#$%^&*)');
+    } else if (!passwordRegex.test(data.password)) {
+      errors.push('Password must contain at least one uppercase letter, one lowercase letter, one number and one special character (@$!%*?&)');
     }
 
-    // Confirm password validation
-    if (data.password !== data.confirmPassword) {
+    // Password match validation
+    if (data.confirmPassword && data.password !== data.confirmPassword) {
       errors.push('Passwords do not match');
     }
 
@@ -255,11 +253,23 @@ class AuthService {
         console.error(`Login attempt ${retryCount + 1} failed:`, error.response?.data || error.message);
 
         if (error.response?.status === 401) {
-          throw new Error('Invalid email or password');
+          return {
+            success: false,
+            message: 'Invalid email or password',
+            errors: {
+              auth: 'The email or password you entered is incorrect. Please try again.'
+            }
+          };
         }
 
         if (error.response?.status === 404) {
-          throw new Error('Login service not available');
+          return {
+            success: false,
+            message: 'Login service not available',
+            errors: {
+              server: 'The login service is currently unavailable. Please try again later.'
+            }
+          };
         }
 
         if (retryCount < MAX_RETRIES - 1 && (!error.response || error.response.status >= 500)) {
@@ -272,11 +282,16 @@ class AuthService {
       }
     }
 
-    throw new Error(
-      lastError?.response?.data?.message || 
-      lastError?.message || 
-      'Unable to connect to the server. Please check your internet connection and try again.'
-    );
+    // If we've exhausted retries or hit a non-retryable error
+    return {
+      success: false,
+      message: lastError?.response?.data?.message || 'Login failed',
+      errors: {
+        server: lastError?.response?.data?.errors?.server || 
+                lastError?.message || 
+                'Unable to connect to the server. Please check your internet connection and try again.'
+      }
+    };
   }
 
   public async logout(): Promise<void> {
@@ -302,14 +317,16 @@ class AuthService {
       console.log('Logout successful, redirecting to login page...');
       
       // Use window.location.replace for a clean redirect
-      if (!window.location.pathname.includes('/login')) {
+      const isLoginPage = window.location.pathname.includes('/login');
+      if (!isLoginPage) {
         window.location.replace(`${FRONTEND_URL}/login?message=logged_out`);
       }
     } catch (error) {
       console.error('Error during logout:', error);
       // Force logout even if there's an error
       localStorage.clear();
-      if (!window.location.pathname.includes('/login')) {
+      const isLoginPage = window.location.pathname.includes('/login');
+      if (!isLoginPage) {
         window.location.replace(`${FRONTEND_URL}/login?error=logout_error`);
       }
     }
@@ -367,7 +384,7 @@ class AuthService {
   }
 
   public isAuthenticated(): boolean {
-    return !!this.token && !!this.user;
+    return !!(this.user || localStorage.getItem('user'));
   }
 
   public async handleGoogleCallback(token: string): Promise<void> {
@@ -392,14 +409,15 @@ class AuthService {
       // Set auth state with token and user data
       this.setAuth(token, response.data);
       
-      // Only redirect to password setup if user hasn't set password
-      if (!response.data.hasSetPassword) {
-        console.log('User needs to set password, redirecting to password setup');
-        window.location.replace(`${FRONTEND_URL}/set-password`);
-      } else {
-        console.log('User already has password set, redirecting to dashboard');
-        window.location.replace(`${FRONTEND_URL}/dashboard`);
+      // For Google OAuth users, mark hasSetPassword as true regardless of actual value
+      if (response.data) {
+        const updatedUser = { ...response.data, hasSetPassword: true };
+        this.user = updatedUser;
+        localStorage.setItem('user', JSON.stringify(updatedUser));
       }
+      
+      // No redirection here - let the AuthCallback component handle it
+      console.log('Google authentication complete');
     } catch (error: any) {
       console.error('Google authentication error:', error);
       this.clearAuth();
@@ -428,42 +446,178 @@ class AuthService {
         errorMessage += error.message || 'Unknown error occurred';
       }
 
-      window.location.replace(`${FRONTEND_URL}/login?error=${encodeURIComponent(errorMessage)}`);
+      // Only redirect if we're not already on the login page
+      const isLoginPage = window.location.pathname.includes('/login');
+      if (!isLoginPage) {
+        window.location.replace(`${FRONTEND_URL}/login?error=${encodeURIComponent(errorMessage)}`);
+      }
       throw new Error(errorMessage);
     }
   }
 
-  public async signup(signupData: SignupData): Promise<AuthResponse> {
+  public async signup(data: SignupData): Promise<AuthResponse> {
     try {
-      // Validate signup data
-      const validationErrors = this.validateSignupData(signupData);
-      if (validationErrors.length > 0) {
-        throw new Error(validationErrors.join('\n'));
+      console.log('Starting signup process...');
+      console.log('Environment:', process.env.NODE_ENV);
+      console.log('API URL being used:', API_URL);
+      console.log('Request data:', { ...data, password: '[REDACTED]' });
+
+      // Format the request data
+      const signupData = {
+        name: data.name.trim(),
+        email: data.email.toLowerCase().trim(),
+        password: data.password,
+        confirmPassword: data.confirmPassword
+      };
+
+      console.log('Sending signup request to:', `${API_URL}/auth/signup`);
+
+      const response = await axios.post<AuthResponse>(
+        `${API_URL}/auth/signup`,
+        signupData,
+        {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          timeout: 10000 // 10 second timeout
+        }
+      );
+
+      // Log the full response for debugging
+      console.log('Full server response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: {
+          ...response.data,
+          token: response.data.token ? '[PRESENT]' : '[MISSING]',
+          user: response.data.user ? '[PRESENT]' : '[MISSING]'
+        }
+      });
+
+      if (!response.data) {
+        console.error('Server response missing data');
+        return {
+          success: false,
+          message: 'Server error: Empty response',
+          errors: { server: 'No data received from server' }
+        };
       }
 
-      // Remove confirmPassword before sending to API
-      const { confirmPassword, ...signupDataWithoutConfirm } = signupData;
-      
-      const response = await axios.post<AuthResponse>(`${API_URL}/auth/signup`, signupDataWithoutConfirm);
-      
-      if (response.data.success) {
-        this.setAuth(response.data.token, response.data.user);
+      if (!response.data.success && response.data.message) {
+        console.log('Server indicated failure:', response.data.message);
         return response.data;
-      } else {
-        throw new Error(response.data.message || 'Signup failed');
       }
+
+      // Check for cookie-based authentication
+      const hasCookie = document.cookie.includes('connect.sid') || 
+                       document.cookie.includes('jwt') ||
+                       response.headers['set-cookie']?.some(cookie => 
+                         cookie.includes('connect.sid') || cookie.includes('jwt'));
+
+      console.log('Authentication check:', {
+        hasToken: !!response.data.token,
+        hasUser: !!response.data.user,
+        hasCookie: hasCookie,
+        cookies: document.cookie
+      });
+
+      // Accept user data even without token (backend might be using cookie auth)
+      if (response.data.user) {
+        console.log('User data received, storing in local storage');
+        
+        // Store the user data
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        this.user = response.data.user;
+        
+        // If we also have a token, store it too
+        if (response.data.token) {
+          console.log('Token received, storing for authentication');
+          this.setToken(response.data.token);
+        }
+        
+        return {
+          success: true,
+          user: response.data.user,
+          token: response.data.token,
+          message: 'Signup successful'
+        };
+      }
+
+      console.error('Invalid authentication data:', {
+        hasToken: !!response.data.token,
+        hasUser: !!response.data.user,
+        hasCookie: hasCookie
+      });
+
+      return {
+        success: false,
+        message: 'Authentication failed: Invalid server response',
+        errors: {
+          server: 'Server response missing required authentication data',
+          details: JSON.stringify({
+            hasToken: !!response.data.token,
+            hasUser: !!response.data.user,
+            hasCookie: hasCookie
+          })
+        }
+      };
+
     } catch (error: any) {
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error.response?.status === 409) {
-        throw new Error('An account with this email already exists');
-      } else if (error.response?.status === 422) {
-        throw new Error('Invalid data provided. Please check your input.');
-      } else if (error.response?.status === 500) {
-        throw new Error('Server error. Please try again later.');
+      console.error('Signup error:', error);
+
+      // Handle network errors
+      if (error?.code === 'ECONNABORTED') {
+        return {
+          success: false,
+          message: 'Request timed out',
+          errors: {
+            network: 'The server took too long to respond. Please try again.'
+          }
+        };
       }
-      throw error;
+
+      // Handle axios errors
+      if (error?.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        const serverError = error.response.data;
+        return {
+          success: false,
+          message: serverError?.message || 'Server error occurred',
+          errors: serverError?.errors || {
+            server: 'An unexpected error occurred on the server'
+          }
+        };
+      } else if (error?.request) {
+        // The request was made but no response was received
+        return {
+          success: false,
+          message: 'No response from server',
+          errors: {
+            network: 'Unable to reach the server. Please check your internet connection.'
+          }
+        };
+      }
+
+      // Handle other errors
+      return {
+        success: false,
+        message: 'An unexpected error occurred',
+        errors: {
+          server: process.env.NODE_ENV === 'development' ? String(error?.message || 'Unknown error') : 'Internal error'
+        }
+      };
     }
+  }
+
+  // Helper method to set token
+  private setToken(token: string): void {
+    this.token = token;
+    localStorage.setItem('token', token);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
   public async forgotPassword(email: string): Promise<{ message: string }> {

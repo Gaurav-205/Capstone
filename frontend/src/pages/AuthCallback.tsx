@@ -42,10 +42,9 @@ const AuthCallback: React.FC = () => {
         console.log('Authentication successful');
         setIsProcessing(false);
         
-        // Redirect based on whether password setup is needed
-        const redirectPath = needsPassword ? '/set-password' : '/dashboard';
-        console.log('Redirecting to:', redirectPath);
-        navigate(redirectPath, { replace: true });
+        // Always redirect to dashboard for Google auth users
+        console.log('Redirecting to dashboard...');
+        navigate('/dashboard', { replace: true });
       } catch (err: any) {
         console.error('Authentication error:', err);
         const errorMessage = err.message || 'Authentication failed. Please try again.';

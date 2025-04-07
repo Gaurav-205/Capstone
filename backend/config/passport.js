@@ -2,6 +2,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 // Serialize user for the session
 passport.serializeUser((user, done) => {
@@ -47,10 +48,15 @@ passport.use(
           // If user exists but doesn't have googleId (registered with email)
           if (!user.googleId) {
             user.googleId = profile.id;
-            await user.save();
           }
-          console.log('Existing user found:', user);
-          return done(null, { ...user.toObject(), needsPassword: !user.hasSetPassword });
+          
+          // Always set hasSetPassword to true for Google users to bypass password setup
+          user.hasSetPassword = true;
+          await user.save();
+          
+          console.log('Existing user found and updated:', user);
+          // Don't require password setup for Google login
+          return done(null, { ...user.toObject(), needsPassword: false });
         }
 
         // If not, create new user
@@ -58,11 +64,15 @@ passport.use(
           googleId: profile.id,
           name: profile.displayName,
           email: profile.emails?.[0]?.value,
-          hasSetPassword: false
+          // Auto-set hasSetPassword to true for Google users to bypass password setup
+          hasSetPassword: true,
+          // Generated secure random password for the user
+          password: crypto.randomBytes(16).toString('hex')
         });
 
         console.log('New user created:', user);
-        done(null, { ...user.toObject(), needsPassword: true });
+        // Don't require password setup for Google users
+        done(null, { ...user.toObject(), needsPassword: false });
       } catch (error) {
         console.error('Google strategy error:', error);
         done(error, null);

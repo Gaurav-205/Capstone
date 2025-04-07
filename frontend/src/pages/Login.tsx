@@ -46,7 +46,10 @@ const Login: React.FC = () => {
       console.log('API URL:', process.env.REACT_APP_API_URL);
       console.log('Login data:', { email: data.email, passwordLength: data.password?.length });
       
+      // Call the login function from auth context
       await login(data.email, data.password);
+      
+      // Only proceed with navigation if login was successful
       console.log('Login successful, checking user role...');
       
       // Check localStorage for user role after login
@@ -75,16 +78,23 @@ const Login: React.FC = () => {
 
       let errorMessage = '';
       
-      if (err.message.includes('timeout') || err.message.includes('Failed to connect')) {
+      // Check if the error has a response with data from the auth service
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message?.includes('timeout') || err.message?.includes('Failed to connect')) {
         errorMessage = 'Unable to reach the server. The server might be starting up, please wait a moment and try again.';
         // Increment retry count for timeout errors
         setRetryCount(prev => prev + 1);
       } else if (err.response?.status === 401) {
-        errorMessage = 'Invalid email or password';
+        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
       } else if (err.response?.status === 404) {
         errorMessage = 'Login service is currently unavailable. Please try again later.';
+      } else if (err.response?.data?.errors?.auth) {
+        errorMessage = err.response.data.errors.auth;
+      } else if (err.response?.data?.errors?.server) {
+        errorMessage = err.response.data.errors.server;
       } else {
-        errorMessage = err.response?.data?.message || err.message || 'An error occurred during login';
+        errorMessage = err.message || 'An error occurred during login';
       }
 
       // Add retry suggestion if we've had multiple timeouts
@@ -93,6 +103,29 @@ const Login: React.FC = () => {
       }
 
       setError(errorMessage);
+      
+      // Show error in a more visible way
+      const errorElement = document.createElement('div');
+      errorElement.style.position = 'fixed';
+      errorElement.style.top = '20px';
+      errorElement.style.left = '50%';
+      errorElement.style.transform = 'translateX(-50%)';
+      errorElement.style.backgroundColor = '#f44336';
+      errorElement.style.color = 'white';
+      errorElement.style.padding = '15px 25px';
+      errorElement.style.borderRadius = '4px';
+      errorElement.style.zIndex = '9999';
+      errorElement.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+      errorElement.textContent = errorMessage;
+      document.body.appendChild(errorElement);
+
+      // Remove error message after 5 seconds
+      setTimeout(() => {
+        document.body.removeChild(errorElement);
+      }, 5000);
+      
+      // Prevent form submission and navigation
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -100,10 +133,14 @@ const Login: React.FC = () => {
 
   const handleGoogleLogin = () => {
     try {
-      const backendUrl = process.env.REACT_APP_API_URL?.replace('/api', '');
-      const googleAuthUrl = `${backendUrl}/api/auth/google`;
+      // Use the direct API_URL instead of modifying it
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+      const googleAuthUrl = `${apiUrl}/auth/google`;
+      
+      console.log('Redirecting to Google auth URL:', googleAuthUrl);
       window.location.href = googleAuthUrl;
     } catch (error) {
+      console.error('Google login error:', error);
       setError('Failed to initiate Google login');
     }
   };
