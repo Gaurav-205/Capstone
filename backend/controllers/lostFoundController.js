@@ -1,41 +1,8 @@
 const { validationResult } = require('express-validator');
 
-// In-memory storage with sample data
-let items = [
-  {
-    id: 1,
-    title: "Lost iPhone 13",
-    description: "Black iPhone 13 with a blue case, lost in the Library",
-    category: "Electronics",
-    location: "Library",
-    date: new Date("2024-03-15"),
-    status: "lost",
-    contactName: "John Doe",
-    contactEmail: "john@example.com",
-    contactPhone: "1234567890",
-    isResolved: false,
-    createdAt: new Date("2024-03-15"),
-    updatedAt: new Date("2024-03-15"),
-    userId: "1" // Add userId for sample data
-  },
-  {
-    id: 2,
-    title: "Found Student ID Card",
-    description: "Found a student ID card in the Cafeteria",
-    category: "ID Cards",
-    location: "Cafeteria",
-    date: new Date("2024-03-16"),
-    status: "found",
-    contactName: "Admin Office",
-    contactEmail: "admin@example.com",
-    contactPhone: "9876543210",
-    isResolved: false,
-    createdAt: new Date("2024-03-16"),
-    updatedAt: new Date("2024-03-16"),
-    userId: "2" // Add userId for sample data
-  }
-];
-let nextId = 3;
+// In-memory storage without sample data
+let items = [];
+let nextId = 1;
 
 // Get all items with filtering
 exports.getItems = async (req, res) => {
