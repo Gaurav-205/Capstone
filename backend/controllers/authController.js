@@ -1,6 +1,7 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const User = require('../models/User');
+const jwt = require('jsonwebtoken');
 
 // Configure Google Strategy
 passport.use(new GoogleStrategy({
@@ -69,15 +70,23 @@ exports.googleCallback = (req, res, next) => {
       return res.redirect('https://kampuskart.netlify.app/login?error=auth_failed');
     }
 
-    req.logIn(user, (err) => {
-      if (err) {
-        console.error('Login error:', err);
-        return res.redirect('https://kampuskart.netlify.app/login?error=login_failed');
-      }
+    try {
+      // Generate JWT token
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+        expiresIn: process.env.JWT_EXPIRE || '7d'
+      });
 
-      console.log('User logged in successfully:', { userId: user._id });
-      return res.redirect('https://kampuskart.netlify.app/dashboard');
-    });
+      // Create redirect URL with token
+      const redirectURL = new URL('https://kampuskart.netlify.app/auth/callback');
+      redirectURL.searchParams.append('token', token);
+      redirectURL.searchParams.append('needsPassword', (!user.hasSetPassword).toString());
+
+      console.log('Redirecting to callback with token');
+      return res.redirect(redirectURL.toString());
+    } catch (error) {
+      console.error('Token generation error:', error);
+      return res.redirect('https://kampuskart.netlify.app/login?error=token_generation_failed');
+    }
   })(req, res, next);
 };
 

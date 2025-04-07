@@ -1,15 +1,18 @@
 export interface User {
   id: string;
-  _id: string; // For MongoDB compatibility
-  email: string;
+  _id: string; // MongoDB ID
   name: string;
-  role: 'admin' | 'user' | 'student';
+  email: string;
+  role: 'admin' | 'user';
+  hasSetPassword: boolean;
   avatar?: string;
-  profilePicture?: string;
-  studentId?: string;
-  phone?: string;
   dateOfBirth?: string;
   gender?: string;
+  phoneNumber?: string;
+  phone?: string; // Alias for phoneNumber for backward compatibility
+  address?: string;
+  department?: string;
+  studentId?: string;
 }
 
 export type UserRole = User['role']; 

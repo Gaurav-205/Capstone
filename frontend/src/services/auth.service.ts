@@ -314,15 +314,20 @@ class AuthService {
       
       // Get user data using the token
       const response = await axios.get(`${API_URL}/auth/me`);
-      const user = response.data;
       
-      // Set auth state
-      this.setAuth(token, user);
+      if (!response.data) {
+        throw new Error('No user data received');
+      }
+
+      // Set auth state with token and user data
+      this.setAuth(token, response.data);
       
-      console.log('Google authentication successful');
+      console.log('Google authentication successful, redirecting to dashboard');
+      window.location.replace(`${FRONTEND_URL}/dashboard`);
     } catch (error: any) {
       console.error('Google authentication error:', error);
       this.clearAuth();
+      window.location.replace(`${FRONTEND_URL}/login?error=${encodeURIComponent(error.message)}`);
       throw new Error(`Google authentication failed: ${error.response?.data?.message || error.message}`);
     }
   }

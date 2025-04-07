@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types/user';
 import authService from '../services/auth.service';
+import { User } from '../types/user';
 
 interface AuthContextType {
   user: User | null;
@@ -15,17 +15,29 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
 
 const normalizeUser = (user: any): User => {
+  const userId = user.id || user._id;
   return {
-    ...user,
-    _id: user._id || user.id,
-    id: user.id || user._id,
+    id: userId,
+    _id: userId,
+    name: user.name,
+    email: user.email,
+    role: user.role || 'user',
+    hasSetPassword: user.hasSetPassword || false,
+    avatar: user.avatar,
+    phoneNumber: user.phoneNumber || user.phone,
+    phone: user.phone || user.phoneNumber,
+    dateOfBirth: user.dateOfBirth,
+    gender: user.gender,
+    address: user.address,
+    department: user.department,
+    studentId: user.studentId,
   };
 };
 
@@ -34,25 +46,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
     const checkAuth = async () => {
       try {
+        setLoading(true);
+        // First check local storage
         const storedUser = localStorage.getItem('user');
-        if (storedUser) {
+        const storedToken = localStorage.getItem('token');
+
+        if (storedUser && storedToken) {
+          // Set initial user state from storage
           const parsedUser = JSON.parse(storedUser);
           setUser(normalizeUser(parsedUser));
-          // Refresh user data from server
+
+          // Verify token with server
           try {
             const response = await authService.getCurrentUser();
             if (response) {
               setUser(normalizeUser(response));
+            } else {
+              // If server returns no user, clear auth
+              setUser(null);
+              localStorage.removeItem('user');
+              localStorage.removeItem('token');
             }
           } catch (error) {
-            console.error('Failed to refresh user data:', error);
+            console.error('Failed to verify token:', error);
+            // Clear auth on verification failure
+            setUser(null);
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
           }
+        } else {
+          // No stored credentials
+          setUser(null);
         }
       } catch (error) {
         console.error('Auth check failed:', error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -63,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
+      setLoading(true);
       const response = await authService.login({ email, password });
       const normalizedUser = normalizeUser(response.user);
       setUser(normalizedUser);
@@ -70,17 +101,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = async () => {
     try {
+      setLoading(true);
       await authService.logout();
-      setUser(null);
-      localStorage.removeItem('user');
     } catch (error) {
       console.error('Logout failed:', error);
-      throw error;
+    } finally {
+      setUser(null);
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      setLoading(false);
     }
   };
 
@@ -93,9 +129,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAdmin: user?.role === 'admin',
   };
 
+  // Don't render children until initial auth check is complete
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }; 

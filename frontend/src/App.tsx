@@ -16,6 +16,9 @@ import NewsAndEventsPage from './pages/NewsAndEventsPage';
 import AdminDashboard from './pages/admin/Dashboard';
 import UserManagement from './pages/admin/UserManagement';
 import FeedbackManagement from './pages/admin/FeedbackManagement';
+import PrivateRoute from './components/PrivateRoute';
+import Profile from './pages/Profile';
+import NotFound from './pages/NotFound';
 
 const App: React.FC = () => {
   return (
@@ -42,17 +45,27 @@ const App: React.FC = () => {
 
             {/* Protected routes with MainLayout */}
             <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/hostel-facility" element={<Dashboard section="hostel-facility" />} />
-              <Route path="/map" element={<Dashboard section="map" />} />
-              <Route path="/mess" element={<Dashboard section="mess" />} />
-              <Route path="/lost-and-found" element={<Dashboard section="lost-and-found" />} />
-              <Route path="/feedback" element={<Dashboard section="feedback" />} />
-              <Route path="/profile" element={<Dashboard section="profile" />} />
-              <Route path="/news-events" element={<NewsAndEventsPage />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+              <Route path="/hostel-facility" element={<PrivateRoute><Dashboard section="hostel-facility" /></PrivateRoute>} />
+              <Route path="/map" element={<PrivateRoute><Dashboard section="map" /></PrivateRoute>} />
+              <Route path="/mess" element={<PrivateRoute><Dashboard section="mess" /></PrivateRoute>} />
+              <Route path="/lost-and-found" element={<PrivateRoute><Dashboard section="lost-and-found" /></PrivateRoute>} />
+              <Route path="/feedback" element={<PrivateRoute><Dashboard section="feedback" /></PrivateRoute>} />
+              <Route path="/profile" element={<PrivateRoute><Dashboard section="profile" /></PrivateRoute>} />
+              <Route path="/news-events" element={<PrivateRoute><NewsAndEventsPage /></PrivateRoute>} />
+              <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+              <Route path="/" element={<PrivateRoute><Navigate to="/dashboard" replace /></PrivateRoute>} />
             </Route>
+
+            {/* Protected routes without MainLayout */}
+            <Route path="/set-password" element={<PrivateRoute><SetPassword /></PrivateRoute>} />
+            <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+
+            {/* Redirect root to login */}
+            <Route path="/" element={<PrivateRoute><Navigate to="/login" replace /></PrivateRoute>} />
+
+            {/* 404 Route */}
+            <Route path="*" element={<PrivateRoute><NotFound /></PrivateRoute>} />
           </Routes>
         </Router>
       </AuthProvider>
