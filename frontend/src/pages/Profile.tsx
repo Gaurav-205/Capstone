@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import profileService from '../services/profileService';
+import { getAvatarUrl, handleImageError } from '../utils/imageUtils';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -74,14 +75,7 @@ const Profile: React.FC = () => {
   const [message, setMessage] = useState({ type: 'success', text: '' });
   const [showMessage, setShowMessage] = useState(false);
 
-  const getAvatarUrl = (avatarPath: string) => {
-    if (!avatarPath) return '';
-    if (avatarPath.startsWith('http')) return avatarPath;
-    if (avatarPath.startsWith('/uploads')) {
-      return `${process.env.REACT_APP_API_URL?.replace('/api', '')}${avatarPath}`;
-    }
-    return avatarPath;
-  };
+  // Using the utility function for avatar URL
 
   console.log('Profile component rendering', { user });
 

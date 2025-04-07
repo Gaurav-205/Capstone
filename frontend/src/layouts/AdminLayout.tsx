@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Drawer, AppBar, Toolbar, List, Typography, Divider, IconButton, ListItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Box, Drawer, AppBar, Toolbar, List, Typography, Divider, IconButton, ListItem, ListItemIcon, ListItemText, useTheme, useMediaQuery } from '@mui/material';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -23,6 +23,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -38,8 +40,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   ];
 
   const drawer = (
-    <div>
-      <Toolbar>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Toolbar sx={{ px: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box
             sx={{
@@ -70,7 +72,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             noWrap
             component="div"
             sx={{ 
-              display: { xs: 'none', sm: 'block' },
               fontWeight: 700,
               fontSize: '1.25rem',
               letterSpacing: '0.5px',
@@ -85,35 +86,61 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </Box>
       </Toolbar>
       <Divider />
-      <List>
+      <List sx={{ flexGrow: 1 }}>
         {menuItems.map((item) => (
           <ListItem 
             button 
             key={item.text} 
-            onClick={() => navigate(item.path)}
+            onClick={() => {
+              navigate(item.path);
+              if (isMobile) setMobileOpen(false);
+            }}
+            sx={{
+              borderRadius: 1,
+              mx: 1,
+              mb: 0.5,
+              '&:hover': {
+                bgcolor: 'action.hover',
+              }
+            }}
           >
-            <ListItemIcon>{item.icon}</ListItemIcon>
+            <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
             <ListItemText primary={item.text} />
           </ListItem>
         ))}
       </List>
       <Divider />
       <List>
-        <ListItem button onClick={logout}>
-          <ListItemIcon><LogoutIcon /></ListItemIcon>
+        <ListItem 
+          button 
+          onClick={logout}
+          sx={{
+            borderRadius: 1,
+            mx: 1,
+            mb: 1,
+            '&:hover': {
+              bgcolor: 'error.light',
+              color: 'error.main',
+            }
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 40 }}><LogoutIcon /></ListItemIcon>
           <ListItemText primary="Logout" />
         </ListItem>
       </List>
-    </div>
+    </Box>
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <AppBar
         position="fixed"
         sx={{
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           ml: { sm: `${drawerWidth}px` },
+          bgcolor: 'background.paper',
+          color: 'text.primary',
+          boxShadow: 1
         }}
       >
         <Toolbar>
@@ -128,29 +155,33 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{
             fontWeight: 600,
-            background: 'linear-gradient(45deg, #ffffff 30%, #e0e0e0 90%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+            fontSize: { xs: '1.1rem', sm: '1.25rem' }
           }}>
-            KampusKart Admin Panel
+            Admin Panel
           </Typography>
         </Toolbar>
       </AppBar>
       <Box
         component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        sx={{ 
+          width: { sm: drawerWidth }, 
+          flexShrink: { sm: 0 }
+        }}
       >
         <Drawer
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
           ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
+            keepMounted: true,
           }}
           sx={{
             display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: drawerWidth,
+              boxShadow: 3
+            },
           }}
         >
           {drawer}
@@ -159,7 +190,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: drawerWidth,
+              boxShadow: 1,
+              border: 'none'
+            },
           }}
           open
         >
@@ -170,9 +206,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 2, sm: 3 },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
-          mt: '64px'
+          mt: { xs: '56px', sm: '64px' },
+          minHeight: '100vh',
+          bgcolor: 'background.default'
         }}
       >
         {children}

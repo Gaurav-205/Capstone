@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { getAvatarUrl, handleImageError } from '../utils/imageUtils';
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -225,11 +226,15 @@ const Sidebar = () => {
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Avatar 
-                src={user?.avatar ? `${process.env.REACT_APP_API_URL?.replace('/api', '')}${user.avatar}` : undefined}
+                src={user?.avatar ? getAvatarUrl(user.avatar) : undefined}
                 sx={{ 
                   width: 40, 
                   height: 40,
                   bgcolor: 'primary.main',
+                }}
+                imgProps={{
+                  loading: 'lazy',
+                  onError: handleImageError
                 }}
               >
                 {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
@@ -272,4 +277,4 @@ const Sidebar = () => {
   );
 };
 
-export default Sidebar; 
+export default Sidebar;

@@ -135,6 +135,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateUserState = (userData: Partial<User>) => {
     if (!user) return;
 
+    // If updating avatar, ensure we're using the latest version
+    if (userData.avatar) {
+      // Add timestamp to force cache refresh when stored in localStorage
+      userData = {
+        ...userData,
+        avatarTimestamp: new Date().getTime()
+      };
+    }
+
     const updatedUser = normalizeUser({ ...user, ...userData });
     setUser(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));

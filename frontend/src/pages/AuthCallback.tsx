@@ -12,15 +12,11 @@ const AuthCallback: React.FC = () => {
   useEffect(() => {
     const processAuth = async () => {
       try {
-        // Check if we're in a redirect loop
-        const redirectCount = parseInt(sessionStorage.getItem('authRedirectCount') || '0');
-        if (redirectCount > 2) {
-          throw new Error('Too many authentication redirects. Please try logging in again.');
-        }
-        sessionStorage.setItem('authRedirectCount', (redirectCount + 1).toString());
-
-        // Get the token from search params or hash
-        const searchParams = new URLSearchParams(location.search || location.hash.substring(1));
+        // Clear any existing auth data to prevent state conflicts
+        authService.clearAuth();
+        
+        // Get the token from search params
+        const searchParams = new URLSearchParams(location.search);
         const token = searchParams.get('token');
         const error = searchParams.get('error');
 
@@ -29,33 +25,38 @@ const AuthCallback: React.FC = () => {
         }
 
         if (!token) {
-          throw new Error('No authentication token found in URL');
+          throw new Error('No authentication token found');
         }
 
         // Handle the authentication with the received token
-        console.log('Handling authentication...');
         await authService.handleGoogleCallback(token);
         
-        // Clear redirect count on successful auth
+        // Clear any redirect counts or temporary storage
         sessionStorage.removeItem('authRedirectCount');
+        localStorage.removeItem('returnUrl');
         
-        console.log('Authentication successful');
-        setIsProcessing(false);
-
-        // Verify authentication state before redirect
-        const isAuthenticated = localStorage.getItem('googleAuthComplete') === 'true';
-        if (!isAuthenticated) {
-          throw new Error('Authentication state not properly set');
+        // Verify authentication state
+        if (!authService.isAuthenticated()) {
+          throw new Error('Authentication failed to complete');
         }
 
-        // Always redirect to dashboard for Google auth users
-        console.log('Redirecting to dashboard...');
-        navigate('/dashboard', { replace: true });
+        // Get user data
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
+          throw new Error('User data not found after authentication');
+        }
+
+        const user = JSON.parse(userStr);
+        
+        // Redirect based on user role
+        const redirectPath = user.role === 'admin' ? '/admin/dashboard' : '/dashboard';
+        navigate(redirectPath, { replace: true });
       } catch (err: any) {
         console.error('Authentication error:', err);
-        const errorMessage = err.message || 'Authentication failed. Please try again.';
-        console.error('Error message:', errorMessage);
-        setError(errorMessage);
+        setError(err.message || 'Authentication failed');
+        // Clean up any partial auth state
+        authService.clearAuth();
+      } finally {
         setIsProcessing(false);
       }
     };

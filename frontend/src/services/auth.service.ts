@@ -359,7 +359,7 @@ class AuthService {
     }
   }
 
-  private clearAuth() {
+  public clearAuth() {
     console.log('Clearing auth state...');
     
     // Clear instance variables

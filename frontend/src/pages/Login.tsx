@@ -39,16 +39,25 @@ const Login: React.FC = () => {
     resolver: yupResolver(schema)
   });
 
-  // Clean up URL on component mount to prevent redirect loops
+  // Clean up URL and check auth state on mount
   useEffect(() => {
-    // If we have a redirect parameter, clean it up to prevent loops
-    if (location.search.includes('redirect') || location.search.includes('returnUrl')) {
+    // Clear any stale auth data
+    if (location.search.includes('error')) {
+      const params = new URLSearchParams(location.search);
+      const errorMsg = params.get('error');
+      setError(decodeURIComponent(errorMsg || 'Authentication failed'));
+      // Clean URL
       window.history.replaceState({}, document.title, '/login');
     }
     
-    // If user is already authenticated, redirect to dashboard
+    // If user is already authenticated, redirect to appropriate page
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        const redirectPath = user.role === 'admin' ? '/admin/dashboard' : '/dashboard';
+        navigate(redirectPath, { replace: true });
+      }
     }
   }, [location, navigate, isAuthenticated]);
 
@@ -153,15 +162,19 @@ const Login: React.FC = () => {
 
   const handleGoogleLogin = () => {
     try {
-      // Use the direct API_URL instead of modifying it
+      // Clear any existing auth data before starting new auth flow
+      localStorage.removeItem('googleAuthComplete');
+      localStorage.removeItem('returnUrl');
+      sessionStorage.removeItem('authRedirectCount');
+      
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
       const googleAuthUrl = `${apiUrl}/auth/google`;
       
-      console.log('Redirecting to Google auth URL:', googleAuthUrl);
+      // Redirect to Google auth
       window.location.href = googleAuthUrl;
     } catch (error) {
       console.error('Google login error:', error);
-      setError('Failed to initiate Google login');
+      setError('Failed to initiate Google login. Please try again.');
     }
   };
 

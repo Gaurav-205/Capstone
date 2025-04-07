@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Box, CssBaseline, useTheme } from '@mui/material';
+import { Box, CssBaseline, useTheme, useMediaQuery } from '@mui/material';
 import Sidebar from '../components/Sidebar';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     // Store any intervals or timeouts that need cleanup
@@ -31,7 +32,8 @@ const MainLayout: React.FC = () => {
       display: 'flex',
       minHeight: '100vh',
       bgcolor: theme.palette.background.default,
-      color: theme.palette.text.primary
+      color: theme.palette.text.primary,
+      flexDirection: { xs: 'column', sm: 'row' }
     }}>
       <CssBaseline />
       <Sidebar />
@@ -39,11 +41,22 @@ const MainLayout: React.FC = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 2, sm: 3 },
           bgcolor: theme.palette.background.default,
           color: theme.palette.text.primary,
           minHeight: '100vh',
-          width: { sm: `calc(100% - 240px)` }
+          width: { 
+            xs: '100%',
+            sm: `calc(100% - ${isMobile ? '0px' : '240px'})` 
+          },
+          ml: { 
+            xs: 0,
+            sm: isMobile ? 0 : '240px'
+          },
+          mt: { 
+            xs: '56px',
+            sm: 0 
+          }
         }}
       >
         <Outlet />
