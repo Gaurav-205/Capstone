@@ -25,8 +25,14 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    // Redirect to login page with the return url
-    return <Navigate to={`/login?returnUrl=${encodeURIComponent(location.pathname)}`} replace />;
+    // If we're already at the login page or if the path includes "login", don't add another redirect
+    if (location.pathname.includes('login')) {
+      return <Navigate to="/login" replace />;
+    }
+    
+    // For other pages, redirect to login without using "redirect" parameter 
+    // which can cause redirection loops
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;

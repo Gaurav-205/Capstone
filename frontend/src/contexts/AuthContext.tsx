@@ -98,6 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (!response.success) {
         // If login was not successful, throw an error with the response details
+        setLoading(false); // Immediately stop loading on error
         const error = new Error(response.message || 'Login failed');
         (error as any).response = { data: response };
         throw error;
@@ -108,10 +109,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('user', JSON.stringify(normalizedUser));
     } catch (error) {
       console.error('Login failed:', error);
-      // Don't set loading to false here, let the component handle it
+      setLoading(false); // Ensure loading is stopped on error
       throw error;
     } finally {
-      // We need to set loading to false in all cases
+      // This ensures loading is always turned off eventually
       setLoading(false);
     }
   };

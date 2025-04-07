@@ -12,20 +12,17 @@ const AuthCallback: React.FC = () => {
   useEffect(() => {
     const processAuth = async () => {
       try {
-        // Log the full URL and search params
-        console.log('Full URL:', window.location.href);
-        console.log('Search params:', location.search);
-        console.log('Hash:', location.hash);
+        // Check if we're in a redirect loop
+        const redirectCount = parseInt(sessionStorage.getItem('authRedirectCount') || '0');
+        if (redirectCount > 2) {
+          throw new Error('Too many authentication redirects. Please try logging in again.');
+        }
+        sessionStorage.setItem('authRedirectCount', (redirectCount + 1).toString());
 
         // Get the token from search params or hash
         const searchParams = new URLSearchParams(location.search || location.hash.substring(1));
         const token = searchParams.get('token');
-        const needsPassword = searchParams.get('needsPassword') === 'true';
         const error = searchParams.get('error');
-        
-        console.log('Token found:', !!token);
-        console.log('Needs password:', needsPassword);
-        console.log('Error:', error);
 
         if (error) {
           throw new Error(`Authentication failed: ${error}`);
@@ -39,9 +36,18 @@ const AuthCallback: React.FC = () => {
         console.log('Handling authentication...');
         await authService.handleGoogleCallback(token);
         
+        // Clear redirect count on successful auth
+        sessionStorage.removeItem('authRedirectCount');
+        
         console.log('Authentication successful');
         setIsProcessing(false);
-        
+
+        // Verify authentication state before redirect
+        const isAuthenticated = localStorage.getItem('googleAuthComplete') === 'true';
+        if (!isAuthenticated) {
+          throw new Error('Authentication state not properly set');
+        }
+
         // Always redirect to dashboard for Google auth users
         console.log('Redirecting to dashboard...');
         navigate('/dashboard', { replace: true });
@@ -134,4 +140,4 @@ const AuthCallback: React.FC = () => {
   );
 };
 
-export default AuthCallback; 
+export default AuthCallback;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -14,7 +14,7 @@ import {
   Paper,
 } from '@mui/material';
 import { Google as GoogleIcon } from '@mui/icons-material';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import authService, { LoginData } from '../services/auth.service';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -25,10 +25,11 @@ const schema = yup.object().shape({
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   
   const {
     register,
@@ -38,9 +39,28 @@ const Login: React.FC = () => {
     resolver: yupResolver(schema)
   });
 
+  // Clean up URL on component mount to prevent redirect loops
+  useEffect(() => {
+    // If we have a redirect parameter, clean it up to prevent loops
+    if (location.search.includes('redirect') || location.search.includes('returnUrl')) {
+      window.history.replaceState({}, document.title, '/login');
+    }
+    
+    // If user is already authenticated, redirect to dashboard
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [location, navigate, isAuthenticated]);
+
   const onSubmit = async (data: LoginData) => {
     setIsLoading(true);
     setError('');
+    
+    // Clear any redirect parameter from URL to prevent looping
+    if (window.location.search.includes('redirect')) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
     try {
       console.log('Starting login process...');
       console.log('API URL:', process.env.REACT_APP_API_URL);

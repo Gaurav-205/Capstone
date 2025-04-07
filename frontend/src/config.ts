@@ -21,4 +21,4 @@ if (isDevelopment) {
   console.log('Running in development mode');
   console.log('API URL:', API_URL);
   console.log('Frontend URL:', FRONTEND_URL);
-} 
+}

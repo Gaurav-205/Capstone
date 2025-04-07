@@ -160,12 +160,15 @@ class AuthService {
       (response) => response,
       async (error) => {
         if (error.response?.status === 401) {
-          // Clear auth and redirect only if not already on login page and not trying to login
+          // For login requests, return error message without redirecting
           const isLoginRequest = error.config.url.includes('/login');
-          const isLoginPage = window.location.pathname.includes('/login');
+          if (isLoginRequest) {
+            return Promise.reject(error);
+          }
           
-          // Only redirect if we're not already on the login page and not trying to login
-          if (!isLoginRequest && !isLoginPage) {
+          // For other requests, clear auth and redirect if not on login page
+          const isLoginPage = window.location.pathname.includes('/login');
+          if (!isLoginPage) {
             this.clearAuth();
             window.location.href = `${FRONTEND_URL}/login?error=session_expired`;
           }
@@ -231,12 +234,12 @@ class AuthService {
     let retryCount = 0;
     let lastError: any = null;
 
+    // Clear any existing auth before attempting login
+    this.clearAuth();
+
     while (retryCount < MAX_RETRIES) {
       try {
         console.log(`Attempting login (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
-        
-        // First clear any existing auth
-        this.clearAuth();
         
         const response = await axios.post<AuthResponse>(`${API_URL}/auth/login`, loginData);
         
@@ -251,6 +254,9 @@ class AuthService {
       } catch (error: any) {
         lastError = error;
         console.error(`Login attempt ${retryCount + 1} failed:`, error.response?.data || error.message);
+
+        // Clear any partially saved auth data on error
+        this.clearAuth();
 
         if (error.response?.status === 401) {
           return {
@@ -395,32 +401,65 @@ class AuthService {
         throw new Error('Authentication failed: No token received from Google');
       }
 
+      // Clear any existing auth state before setting new one
+      this.clearAuth();
+
+      // Validate token format
+      if (!/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/.test(token)) {
+        throw new Error('Invalid token format');
+      }
+
       // Set the token directly since it's already a JWT from our backend
       this.token = token;
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       
       // Get user data using the token
-      const response = await axios.get<User>(`${API_URL}/auth/me`);
+      const response = await axios.get<User>(`${API_URL}/auth/me`, {
+        timeout: 10000, // 10 second timeout
+        validateStatus: (status) => status === 200 // Only accept 200 status
+      });
       
       if (!response.data) {
         throw new Error('Authentication failed: Unable to retrieve user information');
       }
 
-      // Set auth state with token and user data
-      this.setAuth(token, response.data);
+      // Update user data with Google auth specific fields
+      const updatedUser = {
+        ...response.data,
+        hasSetPassword: true,
+        provider: 'google',
+        lastLogin: new Date().toISOString()
+      };
+
+      // Set auth state with token and updated user data
+      this.setAuth(token, updatedUser);
       
-      // For Google OAuth users, mark hasSetPassword as true regardless of actual value
-      if (response.data) {
-        const updatedUser = { ...response.data, hasSetPassword: true };
-        this.user = updatedUser;
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-      }
+      // Store updated user data
+      this.user = updatedUser;
+      localStorage.setItem('user', JSON.stringify(updatedUser));
       
-      // No redirection here - let the AuthCallback component handle it
+      // Set a flag to indicate successful Google auth
+      localStorage.setItem('googleAuthComplete', 'true');
+      
       console.log('Google authentication complete');
+      
+      // Get the current environment
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      const baseUrl = isDevelopment ? 'http://localhost:3000' : FRONTEND_URL;
+      
+      // Get return URL from localStorage or default to dashboard
+      const returnUrl = localStorage.getItem('returnUrl') || '/dashboard';
+      localStorage.removeItem('returnUrl'); // Clean up
+      
+      // Construct the full URL
+      const redirectUrl = new URL(returnUrl, baseUrl).toString();
+      
+      // Perform the redirect
+      window.location.href = redirectUrl;
     } catch (error: any) {
       console.error('Google authentication error:', error);
       this.clearAuth();
+      localStorage.removeItem('googleAuthComplete');
       
       let errorMessage = 'Authentication failed: ';
       if (error.response) {
@@ -446,10 +485,17 @@ class AuthService {
         errorMessage += error.message || 'Unknown error occurred';
       }
 
-      // Only redirect if we're not already on the login page
+      // Get the current environment for error redirect
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      const baseUrl = isDevelopment ? 'http://localhost:3000' : FRONTEND_URL;
+      
+      // Only redirect if we're not already on the login or callback page
       const isLoginPage = window.location.pathname.includes('/login');
-      if (!isLoginPage) {
-        window.location.replace(`${FRONTEND_URL}/login?error=${encodeURIComponent(errorMessage)}`);
+      const isCallbackPage = window.location.pathname.includes('/auth/callback');
+      if (!isLoginPage && !isCallbackPage) {
+        const loginUrl = new URL('/login', baseUrl);
+        loginUrl.searchParams.set('error', errorMessage);
+        window.location.replace(loginUrl.toString());
       }
       throw new Error(errorMessage);
     }
