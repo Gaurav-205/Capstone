@@ -65,7 +65,7 @@ const handleApiError = (error: unknown): string => {
 };
 
 const Profile: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateUserState } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -182,8 +182,8 @@ const Profile: React.FC = () => {
         setFormData(prev => ({ ...prev, avatar: response.avatar }));
         setMessage({ type: 'success', text: 'Profile picture updated successfully!' });
         setShowMessage(true);
-        // Force a refresh of the auth context
-        window.location.reload();
+        // Update auth context with new avatar
+        updateUserState({ avatar: response.avatar });
       } catch (error) {
         setMessage({ type: 'error', text: 'Failed to update profile picture' });
         setShowMessage(true);
@@ -238,7 +238,7 @@ const Profile: React.FC = () => {
           confirmPassword: '',
         }));
       } else {
-        await profileService.updateProfile({
+        const updatedProfile = await profileService.updateProfile({
           name: formData.name,
           phone: formData.phone,
           dateOfBirth: formData.dateOfBirth,
@@ -253,6 +253,8 @@ const Profile: React.FC = () => {
           smsNotifications: formData.smsNotifications,
           pushNotifications: formData.pushNotifications,
         });
+        // Update auth context with new profile data
+        updateUserState(updatedProfile);
         setSuccess('Profile updated successfully');
       }
     } catch (error: unknown) {
@@ -546,4 +548,4 @@ const Profile: React.FC = () => {
   );
 };
 
-export default Profile; 
+export default Profile;
