@@ -308,6 +308,10 @@ class AuthService {
     try {
       console.log('Handling Google callback with token');
       
+      if (!token) {
+        throw new Error('Authentication failed: No token received from Google');
+      }
+
       // Set the token directly since it's already a JWT from our backend
       this.token = token;
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -316,19 +320,50 @@ class AuthService {
       const response = await axios.get(`${API_URL}/auth/me`);
       
       if (!response.data) {
-        throw new Error('No user data received');
+        throw new Error('Authentication failed: Unable to retrieve user information');
       }
 
       // Set auth state with token and user data
       this.setAuth(token, response.data);
       
-      console.log('Google authentication successful, redirecting to dashboard');
-      window.location.replace(`${FRONTEND_URL}/dashboard`);
+      // Check if user needs to set password
+      if (!response.data.hasSetPassword) {
+        console.log('User needs to set password, redirecting to password setup');
+        window.location.replace(`${FRONTEND_URL}/set-password`);
+      } else {
+        console.log('Google authentication successful, redirecting to dashboard');
+        window.location.replace(`${FRONTEND_URL}/dashboard`);
+      }
     } catch (error: any) {
       console.error('Google authentication error:', error);
       this.clearAuth();
-      window.location.replace(`${FRONTEND_URL}/login?error=${encodeURIComponent(error.message)}`);
-      throw new Error(`Google authentication failed: ${error.response?.data?.message || error.message}`);
+      
+      let errorMessage = 'Authentication failed: ';
+      if (error.response) {
+        switch (error.response.status) {
+          case 400:
+            errorMessage += 'Invalid authentication request';
+            break;
+          case 401:
+            errorMessage += 'Unable to verify Google account';
+            break;
+          case 404:
+            errorMessage += 'Google authentication service unavailable';
+            break;
+          case 500:
+            errorMessage += 'Server error, please try again later';
+            break;
+          default:
+            errorMessage += error.response.data?.message || 'Unknown error occurred';
+        }
+      } else if (error.request) {
+        errorMessage += 'Unable to reach authentication server';
+      } else {
+        errorMessage += error.message || 'Unknown error occurred';
+      }
+
+      window.location.replace(`${FRONTEND_URL}/login?error=${encodeURIComponent(errorMessage)}`);
+      throw new Error(errorMessage);
     }
   }
 
@@ -366,14 +401,47 @@ class AuthService {
 
   public async setPassword(password: string): Promise<SetPasswordResponse> {
     try {
+      if (!this.isAuthenticated()) {
+        throw new Error('You must be logged in to set a password');
+      }
+
+      if (!password) {
+        throw new Error('Password is required');
+      }
+
       const response = await axios.post<SetPasswordResponse>(`${API_URL}/auth/set-password`, {
         password
       }, {
         headers: { Authorization: `Bearer ${this.token}` }
       });
+
+      // Update the user's hasSetPassword status
+      if (this.user) {
+        this.user.hasSetPassword = true;
+        localStorage.setItem('user', JSON.stringify(this.user));
+      }
+
       return response.data;
     } catch (error: any) {
-      throw new Error(`Setting password failed: ${error.response?.data?.message || error.message}`);
+      if (error.response) {
+        switch (error.response.status) {
+          case 400:
+            throw new Error('Password does not meet requirements. Please ensure it has at least 8 characters, including uppercase, lowercase, numbers, and special characters.');
+          case 401:
+            throw new Error('Your session has expired. Please log in again.');
+          case 409:
+            throw new Error('You have already set a password for this account.');
+          case 422:
+            throw new Error('Invalid password format. Please try a different password.');
+          case 429:
+            throw new Error('Too many attempts. Please wait a moment before trying again.');
+          case 500:
+            throw new Error('Server error. Please try again later.');
+          default:
+            throw new Error(`Setting password failed: ${error.response.data?.message || 'Unknown error occurred'}`);
+        }
+      }
+      throw new Error('Network error. Please check your internet connection and try again.');
     }
   }
 

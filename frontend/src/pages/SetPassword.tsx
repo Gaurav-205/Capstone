@@ -10,7 +10,8 @@ import {
   Button,
   Alert,
   CircularProgress,
-  Paper
+  Paper,
+  AlertTitle
 } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../services/auth.service';
@@ -22,7 +23,7 @@ const schema = yup.object().shape({
     .min(8, 'Password must be at least 8 characters')
     .matches(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-      'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character'
+      'Password must contain:\n• At least one uppercase letter\n• At least one lowercase letter\n• At least one number\n• At least one special character (@$!%*?&)'
     ),
   confirmPassword: yup
     .string()
@@ -35,13 +36,19 @@ interface SetPasswordData {
   confirmPassword: string;
 }
 
+interface ErrorState {
+  title: string;
+  message: string;
+  action?: string;
+}
+
 const SetPassword: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<ErrorState | null>(null);
   const [success, setSuccess] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
-  const [redirectCountdown, setRedirectCountdown] = useState(2);
+  const [redirectCountdown, setRedirectCountdown] = useState(3);
   const [shouldRedirect, setShouldRedirect] = useState(false);
 
   const {
@@ -53,12 +60,58 @@ const SetPassword: React.FC = () => {
   });
 
   useEffect(() => {
-    let redirectTimer: NodeJS.Timeout;
-    if (shouldRedirect) {
-      redirectTimer = setInterval(() => {
-        setRedirectCountdown((prev) => {
+    const checkAuth = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Check if user is authenticated
+        if (!authService.isAuthenticated()) {
+          setError({
+            title: 'Authentication Required',
+            message: 'You must be logged in to set your password.',
+            action: 'Redirecting to login page...'
+          });
+          setTimeout(() => navigate('/login'), 3000);
+          return;
+        }
+
+        // Get current user data
+        const userData = await authService.getCurrentUser();
+        
+        // If user has already set password, redirect to dashboard
+        if (userData && userData.hasSetPassword) {
+          setError({
+            title: 'Password Already Set',
+            message: 'You have already set your password.',
+            action: 'Redirecting to dashboard...'
+          });
+          setTimeout(() => navigate('/dashboard', { replace: true }), 3000);
+          return;
+        }
+
+        setIsLoading(false);
+      } catch (err: any) {
+        console.error('Auth check error:', err);
+        setError({
+          title: 'Authentication Error',
+          message: err.response?.data?.message || err.message || 'Failed to verify authentication status.',
+          action: 'Redirecting to login page...'
+        });
+        setTimeout(() => navigate('/login'), 3000);
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (shouldRedirect && redirectCountdown > 0) {
+      timer = setInterval(() => {
+        setRedirectCountdown(prev => {
           if (prev <= 1) {
-            navigate('/dashboard');
+            navigate('/dashboard', { replace: true });
             return 0;
           }
           return prev - 1;
@@ -66,78 +119,26 @@ const SetPassword: React.FC = () => {
       }, 1000);
     }
     return () => {
-      if (redirectTimer) {
-        clearInterval(redirectTimer);
-      }
+      if (timer) clearInterval(timer);
     };
-  }, [shouldRedirect, navigate]);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        setIsLoading(true);
-        setError('');
-
-        // Check if we have a token in the URL (for direct navigation after OAuth)
-        const params = new URLSearchParams(location.search);
-        const token = params.get('token');
-        if (token) {
-          await authService.handleGoogleCallback(token);
-        }
-
-        if (!authService.isAuthenticated()) {
-          setError('Please log in to set your password');
-          setShouldRedirect(true);
-          return;
-        }
-
-        const userData = await authService.getCurrentUser();
-        if (userData && userData.hasSetPassword) {
-          setShouldRedirect(true);
-          return;
-        }
-
-        setIsLoading(false);
-      } catch (err: any) {
-        console.error('Auth check error:', err);
-        const errorMessage = err.response?.data?.message || err.message || 'Authentication error';
-        setError(errorMessage);
-        setShouldRedirect(true);
-      }
-    };
-
-    checkAuth();
-  }, [location]);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (shouldRedirect) {
-      timer = setTimeout(() => {
-        if (error) {
-          navigate('/login');
-        } else {
-          navigate('/dashboard');
-        }
-      }, 3000);
-    }
-    return () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    };
-  }, [shouldRedirect, error, navigate]);
+  }, [shouldRedirect, redirectCountdown, navigate]);
 
   const onSubmit = async (data: SetPasswordData) => {
     try {
-      setError('');
+      setError(null);
       setSuccess('');
 
       const response = await authService.setPassword(data.password);
-      setSuccess(response.message || 'Password set successfully');
+      setSuccess('Password set successfully! You can now use either Google or email login.');
       setShouldRedirect(true);
     } catch (err: any) {
       console.error('Set password error:', err);
-      setError(err.response?.data?.message || err.message || 'An error occurred while setting the password');
+      setError({
+        title: 'Password Setup Failed',
+        message: err.message || 'An error occurred while setting the password.',
+        action: err.response?.status === 401 ? 'Please try logging in again.' : undefined
+      });
+
       if (err.response?.status === 401) {
         setTimeout(() => navigate('/login'), 3000);
       }
@@ -173,21 +174,46 @@ const SetPassword: React.FC = () => {
           </Typography>
 
           {error && (
-            <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-              {error}
+            <Alert 
+              severity="error" 
+              sx={{ 
+                width: '100%', 
+                mb: 2,
+                '& .MuiAlert-message': {
+                  width: '100%'
+                }
+              }}
+            >
+              <AlertTitle>{error.title}</AlertTitle>
+              {error.message}
+              {error.action && (
+                <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                  {error.action}
+                </Typography>
+              )}
             </Alert>
           )}
 
           {success && (
-            <Alert severity="success" sx={{ width: '100%', mb: 2 }}>
+            <Alert 
+              severity="success" 
+              sx={{ 
+                width: '100%', 
+                mb: 2,
+                '& .MuiAlert-message': {
+                  width: '100%'
+                }
+              }}
+            >
+              <AlertTitle>Success!</AlertTitle>
               {success}
-              <Typography variant="body2" sx={{ mt: 1 }}>
+              <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
                 Redirecting to dashboard in {redirectCountdown} seconds...
               </Typography>
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+          <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mt: 1 }}>
             <TextField
               margin="normal"
               required
@@ -198,7 +224,12 @@ const SetPassword: React.FC = () => {
               autoComplete="new-password"
               {...register('password')}
               error={!!errors.password}
-              helperText={errors.password?.message}
+              helperText={errors.password?.message?.split('\n').map((line, i) => (
+                <React.Fragment key={i}>
+                  {line}
+                  <br />
+                </React.Fragment>
+              ))}
               disabled={isSubmitting || !!success}
             />
             <TextField

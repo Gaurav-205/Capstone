@@ -22,8 +22,20 @@ const schema = yup.object().shape({
   password: yup
     .string()
     .required('Password is required')
-    .min(6, 'Password must be at least 6 characters')
+    .min(8, 'Password must be at least 8 characters')
+    .matches(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+      'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character'
+    ),
+  confirmPassword: yup
+    .string()
+    .required('Please confirm your password')
+    .oneOf([yup.ref('password')], 'Passwords must match')
 });
+
+interface SignupFormData extends SignupData {
+  confirmPassword: string;
+}
 
 const Signup: React.FC = () => {
   const navigate = useNavigate();
@@ -32,14 +44,15 @@ const Signup: React.FC = () => {
   const {
     register,
     handleSubmit,
-    formState: { errors }
-  } = useForm<SignupData>({
+    formState: { errors, isSubmitting }
+  } = useForm<SignupFormData>({
     resolver: yupResolver(schema)
   });
 
-  const onSubmit = async (data: SignupData) => {
+  const onSubmit = async (data: SignupFormData) => {
     try {
-      await authService.signup(data);
+      const { confirmPassword, ...signupData } = data;
+      await authService.signup(signupData);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'An error occurred');
@@ -80,7 +93,7 @@ const Signup: React.FC = () => {
       {/* Right side - Form */}
       <Box
         sx={{
-          width: '50%',
+          width: { xs: '100%', md: '50%' },
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -181,6 +194,7 @@ const Signup: React.FC = () => {
                 {...register('name')}
                 error={!!errors.name}
                 helperText={errors.name?.message}
+                disabled={isSubmitting}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     bgcolor: '#F8F9FA',
@@ -194,9 +208,11 @@ const Signup: React.FC = () => {
               <TextField
                 fullWidth
                 label="Email"
+                type="email"
                 {...register('email')}
                 error={!!errors.email}
                 helperText={errors.email?.message}
+                disabled={isSubmitting}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     bgcolor: '#F8F9FA',
@@ -214,6 +230,25 @@ const Signup: React.FC = () => {
                 {...register('password')}
                 error={!!errors.password}
                 helperText={errors.password?.message}
+                disabled={isSubmitting}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: '#F8F9FA',
+                    '&.Mui-focused': {
+                      bgcolor: '#fff',
+                    }
+                  }
+                }}
+              />
+
+              <TextField
+                fullWidth
+                type="password"
+                label="Confirm Password"
+                {...register('confirmPassword')}
+                error={!!errors.confirmPassword}
+                helperText={errors.confirmPassword?.message}
+                disabled={isSubmitting}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     bgcolor: '#F8F9FA',
@@ -229,6 +264,7 @@ const Signup: React.FC = () => {
                 type="submit"
                 variant="contained"
                 size="large"
+                disabled={isSubmitting}
                 sx={{
                   bgcolor: '#4CAF50',
                   color: '#fff',
@@ -238,7 +274,7 @@ const Signup: React.FC = () => {
                   },
                 }}
               >
-                Sign Up
+                {isSubmitting ? 'Creating Account...' : 'Sign Up'}
               </Button>
 
               <Box sx={{ position: 'relative', my: 1 }}>
@@ -254,6 +290,7 @@ const Signup: React.FC = () => {
                 variant="outlined"
                 size="large"
                 onClick={handleGoogleSignup}
+                disabled={isSubmitting}
                 startIcon={<GoogleIcon />}
                 sx={{
                   py: 1.5,
@@ -268,24 +305,27 @@ const Signup: React.FC = () => {
               >
                 Continue with Google
               </Button>
+
+              <Box sx={{ textAlign: 'center', mt: 2 }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  Already have an account?{' '}
+                  <Link
+                    component={RouterLink}
+                    to="/login"
+                    sx={{
+                      color: 'primary.main',
+                      textDecoration: 'none',
+                      '&:hover': {
+                        textDecoration: 'underline',
+                      },
+                    }}
+                  >
+                    Sign in
+                  </Link>
+                </Typography>
+              </Box>
             </Stack>
           </form>
-
-          <Typography variant="body2" sx={{ mt: 4, textAlign: 'center', color: 'text.secondary' }}>
-            Already have an account?{' '}
-            <Link
-              component={RouterLink}
-              to="/login"
-              sx={{
-                color: '#4CAF50',
-                textDecoration: 'none',
-                fontWeight: 500,
-                '&:hover': { textDecoration: 'underline' }
-              }}
-            >
-              Login
-            </Link>
-          </Typography>
         </Box>
       </Box>
     </Box>
