@@ -10,7 +10,10 @@ const {
   updateFeedback,
   deleteFeedback,
   submitResolution,
-  getStatistics
+  getStatistics,
+  createDiningFeedback,
+  getFacilityRating,
+  getDiningStatistics
 } = require('../controllers/feedbackController');
 
 // All routes require authentication
@@ -19,11 +22,20 @@ router.use(isAuthenticated);
 // Create new feedback with file upload support
 router.post('/', upload.array('attachments', 5), createFeedback);
 
+// Submit dining feedback (mess and canteen)
+router.post('/dining', createDiningFeedback);
+
+// Get facility rating
+router.get('/facility-rating', getFacilityRating);
+
 // Get all feedback for the authenticated user
 router.get('/', getUserFeedback);
 
 // Get feedback statistics
 router.get('/statistics', getStatistics);
+
+// Add new route for dining statistics
+router.get('/dining-statistics', getDiningStatistics);
 
 // Get single feedback by ID
 router.get('/:id', getFeedbackById);

@@ -288,10 +288,16 @@ const Feedback = () => {
                         size="small"
                         sx={{ mr: 1 }}
                       />
+                    </Box>
+
+                    <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Reference: {feedback.referenceNumber}
+                      </Typography>
                       <Chip 
-                        label={`Priority: ${feedback.priority}`}
-                        variant="outlined"
-                        size="small"
+                        size="small" 
+                        color={getStatusColor(feedback.status)}
+                        label={`Status: ${feedback.status.replace('_', ' ')}`}
                       />
                     </Box>
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Drawer,
   List,
@@ -22,16 +22,69 @@ import {
   Settings as SettingsIcon,
   Logout as LogoutIcon,
   Event as EventIcon,
+  SupportAgent as SupportIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getAvatarUrl, handleImageError } from '../utils/imageUtils';
+import { getAvatarUrl } from '../utils/avatarUtils';
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const theme = useTheme();
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [displayName, setDisplayName] = useState<string>('User');
+
+  // Update avatar URL and display name when user changes
+  useEffect(() => {
+    if (user) {
+      console.log('Sidebar: User updated', user);
+      
+      // Update avatar URL
+      if (user.avatar) {
+        console.log('Sidebar: Setting avatar URL from user:', user.avatar);
+        setAvatarUrl(getAvatarUrl(user.avatar));
+      } else {
+        setAvatarUrl('');
+      }
+      
+      // Update display name with fallbacks
+      if (user.name && user.name.trim() !== '') {
+        console.log('Sidebar: Setting display name to', user.name);
+        setDisplayName(user.name);
+      } else if (user.email) {
+        const emailName = user.email.split('@')[0]
+          .charAt(0).toUpperCase() + user.email.split('@')[0].slice(1)
+          .replace(/[._]/g, ' ');
+        console.log('Sidebar: Setting display name from email to', emailName);
+        setDisplayName(emailName);
+      }
+    }
+  }, [user]);
+  
+  // Also check localStorage directly on component mount
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        console.log('Sidebar: Reading user data from localStorage', parsedUser);
+        
+        if (parsedUser.name && parsedUser.name.trim() !== '') {
+          console.log('Sidebar: Setting display name from localStorage to', parsedUser.name);
+          setDisplayName(parsedUser.name);
+        }
+        
+        if (parsedUser.avatar) {
+          console.log('Sidebar: Setting avatar URL from localStorage:', parsedUser.avatar);
+          setAvatarUrl(getAvatarUrl(parsedUser.avatar));
+        }
+      } catch (e) {
+        console.error('Error parsing user from localStorage:', e);
+      }
+    }
+  }, []);
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
@@ -41,8 +94,7 @@ const Sidebar = () => {
     { text: 'Lost & Found', icon: <SearchIcon />, path: '/lost-and-found' },
     { text: 'Feedback', icon: <FeedbackIcon />, path: '/feedback' },
     { text: 'News & Events', icon: <EventIcon />, path: '/news-events' },
-    { text: 'Profile', icon: <PersonIcon />, path: '/profile' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+    { text: 'Support', icon: <SupportIcon />, path: '/support' },
   ];
 
   const handleLogout = () => {
@@ -226,18 +278,15 @@ const Sidebar = () => {
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Avatar 
-                src={user?.avatar ? getAvatarUrl(user.avatar) : undefined}
+                src={avatarUrl}
+                alt={displayName}
                 sx={{ 
                   width: 40, 
                   height: 40,
                   bgcolor: 'primary.main',
                 }}
-                imgProps={{
-                  loading: 'lazy',
-                  onError: handleImageError
-                }}
               >
-                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                {displayName.charAt(0).toUpperCase()}
               </Avatar>
               <Box sx={{ 
                 minWidth: 0,
@@ -253,7 +302,7 @@ const Sidebar = () => {
                     textOverflow: 'ellipsis'
                   }}
                 >
-                  {user.name}
+                  {displayName}
                 </Typography>
                 <Typography 
                   variant="caption" 
@@ -277,4 +326,4 @@ const Sidebar = () => {
   );
 };
 
-export default Sidebar;
+export default Sidebar; 

@@ -230,74 +230,82 @@ class AuthService {
   }
 
   public async login(loginData: LoginData): Promise<AuthResponse> {
-    console.log('Starting login process...');
-    let retryCount = 0;
-    let lastError: any = null;
-
-    // Clear any existing auth before attempting login
-    this.clearAuth();
-
-    while (retryCount < MAX_RETRIES) {
-      try {
-        console.log(`Attempting login (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
-        
-        const response = await axios.post<AuthResponse>(`${API_URL}/auth/login`, loginData);
-        
-        if (!response.data.token || !response.data.user) {
-          throw new Error('Invalid response from server: missing token or user data');
-        }
-
-        const { token, user } = response.data;
-        this.setAuth(token, user);
-        console.log('Login successful');
+    try {
+      console.log('auth.service: Starting login process');
+      
+      // Clear any existing auth data before attempting login
+      this.clearAuth();
+      
+      // Make the login request with a short timeout
+      const response = await axios.post<AuthResponse>(
+        `${API_URL}/auth/login`,
+        loginData,
+        { timeout: 8000 } // 8-second timeout
+      );
+      
+      // Handle successful login
+      if (response.data.success && response.data.token && response.data.user) {
+        console.log('auth.service: Login successful');
+        this.setAuth(response.data.token, response.data.user);
         return response.data;
-      } catch (error: any) {
-        lastError = error;
-        console.error(`Login attempt ${retryCount + 1} failed:`, error.response?.data || error.message);
-
-        // Clear any partially saved auth data on error
-        this.clearAuth();
-
-        if (error.response?.status === 401) {
-          return {
-            success: false,
-            message: 'Invalid email or password',
-            errors: {
-              auth: 'The email or password you entered is incorrect. Please try again.'
-            }
-          };
-        }
-
-        if (error.response?.status === 404) {
-          return {
-            success: false,
-            message: 'Login service not available',
-            errors: {
-              server: 'The login service is currently unavailable. Please try again later.'
-            }
-          };
-        }
-
-        if (retryCount < MAX_RETRIES - 1 && (!error.response || error.response.status >= 500)) {
-          console.log(`Retrying in ${RETRY_DELAY/1000} seconds...`);
-          await delay(RETRY_DELAY);
-          retryCount++;
-        } else {
-          break;
-        }
       }
+      
+      // If we got a 200 response but missing data, return error
+      console.error('auth.service: Invalid server response - missing token or user');
+      return {
+        success: false,
+        message: 'Login failed due to invalid server response',
+        errors: {
+          server: 'The server returned an incomplete response'
+        }
+      };
+    } catch (error: any) {
+      console.error('auth.service: Login error:', error.response?.status || error.message);
+      
+      // Pass through error responses from the server
+      if (error.response?.data) {
+        return {
+          success: false,
+          message: error.response.data.message || 'Login failed',
+          errors: error.response.data.errors || { 
+            auth: error.response.status === 401 
+              ? 'Invalid email or password' 
+              : 'Login failed' 
+          }
+        };
+      }
+      
+      // Handle timeout errors
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        return {
+          success: false,
+          message: 'Request timed out',
+          errors: {
+            server: 'The server took too long to respond. Please try again.'
+          }
+        };
+      }
+      
+      // Handle network errors
+      if (!error.response) {
+        return {
+          success: false,
+          message: 'Network error',
+          errors: {
+            server: 'Cannot connect to the server. Please check your internet connection.'
+          }
+        };
+      }
+      
+      // Handle any other errors
+      return {
+        success: false,
+        message: 'Login failed',
+        errors: {
+          server: error.message || 'An unexpected error occurred'
+        }
+      };
     }
-
-    // If we've exhausted retries or hit a non-retryable error
-    return {
-      success: false,
-      message: lastError?.response?.data?.message || 'Login failed',
-      errors: {
-        server: lastError?.response?.data?.errors?.server || 
-                lastError?.message || 
-                'Unable to connect to the server. Please check your internet connection and try again.'
-      }
-    };
   }
 
   public async logout(): Promise<void> {
@@ -393,111 +401,64 @@ class AuthService {
     return !!(this.user || localStorage.getItem('user'));
   }
 
-  public async handleGoogleCallback(token: string): Promise<void> {
+  public async handleGoogleCallback(token: string): Promise<AuthResponse> {
     try {
-      console.log('Handling Google callback with token');
-      
-      if (!token) {
-        throw new Error('Authentication failed: No token received from Google');
-      }
-
-      // Clear any existing auth state before setting new one
-      this.clearAuth();
-
-      // Validate token format
-      if (!/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/.test(token)) {
-        throw new Error('Invalid token format');
-      }
-
-      // Set the token directly since it's already a JWT from our backend
+      // Store the token
       this.token = token;
+      localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
-      // Get user data using the token
-      const response = await axios.get<User>(`${API_URL}/auth/me`, {
-        timeout: 10000, // 10 second timeout
-        validateStatus: (status) => status === 200 // Only accept 200 status
-      });
-      
-      if (!response.data) {
-        throw new Error('Authentication failed: Unable to retrieve user information');
-      }
 
-      // Update user data with Google auth specific fields
-      const updatedUser = {
-        ...response.data,
-        hasSetPassword: true,
-        provider: 'google',
-        lastLogin: new Date().toISOString()
-      };
-
-      // Set auth state with token and updated user data
-      this.setAuth(token, updatedUser);
-      
-      // Store updated user data
-      this.user = updatedUser;
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      
-      // Set a flag to indicate successful Google auth
-      localStorage.setItem('googleAuthComplete', 'true');
-      
-      console.log('Google authentication complete');
-      
-      // Get the current environment
-      const isDevelopment = process.env.NODE_ENV === 'development';
-      const baseUrl = isDevelopment ? 'http://localhost:3000' : FRONTEND_URL;
-      
-      // Get return URL from localStorage or default to dashboard
-      const returnUrl = localStorage.getItem('returnUrl') || '/dashboard';
-      localStorage.removeItem('returnUrl'); // Clean up
-      
-      // Construct the full URL
-      const redirectUrl = new URL(returnUrl, baseUrl).toString();
-      
-      // Perform the redirect
-      window.location.href = redirectUrl;
-    } catch (error: any) {
-      console.error('Google authentication error:', error);
-      this.clearAuth();
-      localStorage.removeItem('googleAuthComplete');
-      
-      let errorMessage = 'Authentication failed: ';
-      if (error.response) {
-        switch (error.response.status) {
-          case 400:
-            errorMessage += 'Invalid authentication request';
-            break;
-          case 401:
-            errorMessage += 'Unable to verify Google account';
-            break;
-          case 404:
-            errorMessage += 'Google authentication service unavailable';
-            break;
-          case 500:
-            errorMessage += 'Server error, please try again later';
-            break;
-          default:
-            errorMessage += error.response.data?.message || 'Unknown error occurred';
+      // Get user data
+      const response = await this.getCurrentUser();
+      if (response) {
+        // Ensure the user has a name property - use email username if name is missing
+        if (!response.name && response.email) {
+          console.log('Name missing in Google auth response, using email username instead');
+          response.name = response.email.split('@')[0];
+          // Capitalize first letter and replace dots/underscores with spaces
+          response.name = response.name
+            .charAt(0).toUpperCase() + response.name.slice(1)
+            .replace(/[._]/g, ' ');
         }
-      } else if (error.request) {
-        errorMessage += 'Unable to reach authentication server';
-      } else {
-        errorMessage += error.message || 'Unknown error occurred';
+
+        this.user = response;
+        localStorage.setItem('user', JSON.stringify(response));
+        return {
+          success: true,
+          token,
+          user: response
+        };
+      }
+      throw new Error('Failed to get user data');
+    } catch (error) {
+      console.error('Google callback handling error:', error);
+      this.clearAuth();
+      throw error;
+    }
+  }
+
+  public async getCurrentUser(): Promise<User | null> {
+    try {
+      // First check if we have a local user
+      if (this.user) {
+        return this.user;
       }
 
-      // Get the current environment for error redirect
-      const isDevelopment = process.env.NODE_ENV === 'development';
-      const baseUrl = isDevelopment ? 'http://localhost:3000' : FRONTEND_URL;
-      
-      // Only redirect if we're not already on the login or callback page
-      const isLoginPage = window.location.pathname.includes('/login');
-      const isCallbackPage = window.location.pathname.includes('/auth/callback');
-      if (!isLoginPage && !isCallbackPage) {
-        const loginUrl = new URL('/login', baseUrl);
-        loginUrl.searchParams.set('error', errorMessage);
-        window.location.replace(loginUrl.toString());
+      // If no local user, try to fetch from server
+      const response = await axios.get(`${API_URL}/auth/me`);
+      if (response.data) {
+        // Update local storage and instance with latest user data
+        this.user = response.data;
+        localStorage.setItem('user', JSON.stringify(response.data));
+        return response.data;
       }
-      throw new Error(errorMessage);
+      return null;
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        this.clearAuth();
+      }
+      return null;
     }
   }
 
@@ -731,10 +692,6 @@ class AuthService {
       }
       throw new Error('Network error. Please check your internet connection and try again.');
     }
-  }
-
-  public getCurrentUser(): User | null {
-    return this.user;
   }
 }
 

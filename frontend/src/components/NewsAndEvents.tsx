@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -32,6 +32,7 @@ import {
   FormControl,
   InputLabel,
   Stack,
+  CardMedia,
 } from '@mui/material';
 import {
   CalendarToday as CalendarIcon,
@@ -40,11 +41,12 @@ import {
   ArrowForward as ArrowForwardIcon,
   Close as CloseIcon,
   Share as ShareIcon,
-  Bookmark as BookmarkIcon,
-  BookmarkBorder as BookmarkBorderIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
 import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
+import EventRegistrationButton from './EventRegistrationButton';
+import eventService from '../services/eventService';
+import newsService from '../services/newsService';
 
 interface NewsItem {
   id: string;
@@ -63,6 +65,13 @@ interface EventItem {
   time: string;
   location: string;
   type: 'academic' | 'social' | 'sports' | 'cultural';
+  registrationUrl?: string;
+  imageUrl?: string;
+  isMultiDay?: boolean;
+  startDate?: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
 }
 
 interface AddItemFormData {
@@ -75,6 +84,7 @@ interface AddItemFormData {
   time?: string;
   location?: string;
   type?: 'academic' | 'social' | 'sports' | 'cultural';
+  registrationUrl?: string;
 }
 
 const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
@@ -82,8 +92,7 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
   const [selectedItem, setSelectedItem] = useState<NewsItem | EventItem | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [bookmarkedItems, setBookmarkedItems] = useState<Set<string>>(new Set());
-  const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' as 'info' | 'success' | 'error' });
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [addItemType, setAddItemType] = useState<'news' | 'event'>('news');
   const [formData, setFormData] = useState<AddItemFormData>({
@@ -91,60 +100,64 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
     content: '',
     date: new Date().toISOString().split('T')[0],
   });
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isDashboard = location.pathname === '/dashboard';
 
-  // Simulate loading
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
+  // Fetch news and events on component mount
+  useEffect(() => {
+    fetchNewsAndEvents();
   }, []);
 
-  // Sample data - replace with actual API calls
-  const newsItems: NewsItem[] = [
-    {
-      id: '1',
-      title: 'Campus Reopening Guidelines',
-      content: 'Important updates about campus reopening and safety protocols...',
-      date: '2024-03-20',
-      category: 'Announcement',
-      priority: 'high',
-    },
-    {
-      id: '2',
-      title: 'New Academic Programs',
-      content: 'University introduces new programs for the upcoming semester...',
-      date: '2024-03-19',
-      category: 'Academic',
-      priority: 'medium',
-    },
-  ];
+  const fetchNewsAndEvents = async () => {
+    setLoading(true);
+    try {
+      // Fetch news
+      const newsData = await newsService.getNews();
+      const mappedNews: NewsItem[] = newsData.map(news => ({
+        id: news._id,
+        title: news.title,
+        content: news.content,
+        date: news.date,
+        category: news.category,
+        priority: news.priority,
+      }));
+      setNewsItems(mappedNews);
 
-  const events: EventItem[] = [
-    {
-      id: '1',
-      title: 'Annual Sports Day',
-      description: 'Join us for the annual sports competition...',
-      date: '2024-04-15',
-      time: '9:00 AM',
-      location: 'University Stadium',
-      type: 'sports',
-    },
-    {
-      id: '2',
-      title: 'Career Fair 2024',
-      description: 'Meet top companies and explore job opportunities...',
-      date: '2024-04-20',
-      time: '10:00 AM',
-      location: 'University Convention Center',
-      type: 'academic',
-    },
-  ];
+      // Fetch events
+      const eventsData = await eventService.getEvents();
+      const mappedEvents: EventItem[] = eventsData.map(event => ({
+        id: event._id,
+        title: event.title,
+        description: event.description,
+        date: event.date,
+        time: event.time,
+        location: event.location,
+        type: event.type as 'academic' | 'social' | 'sports' | 'cultural',
+        registrationUrl: event.registrationUrl,
+        imageUrl: event.imageUrl,
+        isMultiDay: event.isMultiDay,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        startTime: event.startTime,
+        endTime: event.endTime,
+      }));
+      setEvents(mappedEvents);
+    } catch (error) {
+      console.error('Error fetching news and events:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load news and events',
+        severity: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const tabs = [
     <Tab key="news" label={
@@ -182,20 +195,6 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
     setOpenDialog(false);
   };
 
-  const handleBookmark = (id: string) => {
-    setBookmarkedItems(prev => {
-      const newBookmarks = new Set(prev);
-      if (newBookmarks.has(id)) {
-        newBookmarks.delete(id);
-        setSnackbar({ open: true, message: 'Removed from bookmarks' });
-      } else {
-        newBookmarks.add(id);
-        setSnackbar({ open: true, message: 'Added to bookmarks' });
-      }
-      return newBookmarks;
-    });
-  };
-
   const handleShare = async (item: NewsItem | EventItem) => {
     try {
       if (navigator.share) {
@@ -206,7 +205,7 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
         });
       } else {
         await navigator.clipboard.writeText(window.location.href);
-        setSnackbar({ open: true, message: 'Link copied to clipboard!' });
+        setSnackbar({ open: true, message: 'Link copied to clipboard!', severity: 'success' });
       }
     } catch (error) {
       console.error('Error sharing:', error);
@@ -218,12 +217,16 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
     return text.substring(0, maxLength) + '...';
   };
 
-  const getPriorityColor = (priority: string): "error" | "warning" | "success" => {
+  const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'error';
-      case 'medium': return 'warning';
-      case 'low': return 'success';
-      default: return 'success';
+      case 'high':
+        return 'error';
+      case 'medium':
+        return 'warning';
+      case 'low':
+        return 'success';
+      default:
+        return 'default';
     }
   };
 
@@ -271,25 +274,67 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
   );
 
   const handleAddItem = () => {
-    setOpenAddDialog(true);
-    setAddItemType(activeTab === 0 ? 'news' : 'event');
     setFormData({
       title: '',
       content: '',
       date: new Date().toISOString().split('T')[0],
+      priority: 'medium',
+      category: 'Announcement',
+      type: 'academic',
     });
+    
+    setAddItemType(activeTab === 0 ? 'news' : 'event');
+    
+    setOpenAddDialog(true);
   };
 
   const handleFormSubmit = async () => {
     try {
-      // Here you would typically make an API call to save the new item
-      console.log('Submitting:', { type: addItemType, data: formData });
+      // Validate form
+      if (!formData.title || !formData.date || 
+          (addItemType === 'news' && !formData.content) || 
+          (addItemType === 'event' && (!formData.description || !formData.location || !formData.time))) {
+        setSnackbar({ 
+          open: true, 
+          message: 'Please fill all required fields', 
+          severity: 'error' 
+        });
+        return;
+      }
       
-      // Show success message
-      setSnackbar({ open: true, message: `${addItemType === 'news' ? 'News' : 'Event'} added successfully` });
+      // Here you would integrate with your API to save the new item
+      if (addItemType === 'news') {
+        // Create news item
+        await newsService.createNews({
+          title: formData.title,
+          content: formData.content,
+          date: formData.date,
+          category: formData.category || 'General',
+          priority: formData.priority || 'medium',
+        });
+      } else {
+        // Create event item
+        await eventService.createEvent({
+          title: formData.title,
+          description: formData.description || '',
+          date: formData.date,
+          time: formData.time || '12:00',
+          location: formData.location || '',
+          type: formData.type || 'other',
+          registrationUrl: formData.registrationUrl,
+        });
+      }
       
-      // Close dialog
+      // Refresh data
+      fetchNewsAndEvents();
+      
+      // Close dialog and show success message
       setOpenAddDialog(false);
+      setSnackbar({ 
+        open: true, 
+        message: `${addItemType === 'news' ? 'News' : 'Event'} added successfully`,
+        severity: 'success'
+      });
       
       // Reset form
       setFormData({
@@ -299,7 +344,11 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
       });
     } catch (error) {
       console.error('Error adding item:', error);
-      setSnackbar({ open: true, message: 'Error adding item. Please try again.' });
+      setSnackbar({ 
+        open: true, 
+        message: 'Error adding item. Please try again.', 
+        severity: 'error' 
+      });
     }
   };
 
@@ -385,6 +434,14 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 required
               />
+              <TextField
+                label="Registration URL"
+                fullWidth
+                value={formData.registrationUrl || ''}
+                onChange={(e) => setFormData({ ...formData, registrationUrl: e.target.value })}
+                placeholder="https://example.com/register"
+                helperText="Optional: URL for event registration"
+              />
               <FormControl fullWidth>
                 <InputLabel>Event Type</InputLabel>
                 <Select
@@ -436,6 +493,24 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
       </DialogActions>
     </Dialog>
   );
+
+  // Return formatted date
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      // Return formatted date in a user-friendly format: April 8, 2024
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateString; // Return the original string if there's an error
+    }
+  };
 
   return (
     <Box>
@@ -497,11 +572,6 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
                           <Typography variant="h6" gutterBottom>
                             {news.title}
                           </Typography>
-                          <Chip
-                            label={news.priority}
-                            color={getPriorityColor(news.priority)}
-                            size="small"
-                          />
                         </Box>
                         <Typography color="textSecondary" gutterBottom>
                           {news.category} • {news.date}
@@ -524,19 +594,8 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
                           <IconButton 
                             size="small" 
                             onClick={() => handleShare(news)}
-                            sx={{ mr: 1 }}
                           >
                             <ShareIcon />
-                          </IconButton>
-                          <IconButton 
-                            size="small"
-                            onClick={() => handleBookmark(news.id)}
-                          >
-                            {bookmarkedItems.has(news.id) ? (
-                              <BookmarkIcon color="primary" />
-                            ) : (
-                              <BookmarkBorderIcon />
-                            )}
                           </IconButton>
                         </Box>
                       </CardActions>
@@ -555,44 +614,91 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
               <Grid container spacing={3}>
                 {events.map((event) => (
                   <Grid item xs={12} md={6} key={event.id}>
-                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                      <CardContent sx={{ flex: 1 }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                          <Typography variant="h6" gutterBottom>
+                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'visible', boxShadow: 3, borderRadius: 2 }}>
+                      {event.imageUrl && (
+                        <CardMedia
+                          component="img"
+                          sx={{ height: 180 }}
+                          image={event.imageUrl}
+                          alt={event.title}
+                        />
+                      )}
+                      <CardContent sx={{ flex: '1 0 auto', p: 3 }}>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                          <Typography variant="h6" component="h3" fontWeight="600" gutterBottom>
                             {event.title}
                           </Typography>
                           <Chip
-                            label={event.type}
+                            label={event.type.charAt(0).toUpperCase() + event.type.slice(1)}
                             color={getEventTypeColor(event.type)}
                             size="small"
+                            sx={{ fontWeight: 500 }}
                           />
                         </Box>
-                        <Typography variant="body2" paragraph>
-                          {truncateText(event.description)}
+                        
+                        <Typography variant="body2" color="text.secondary" paragraph sx={{ 
+                          mb: 2, 
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {event.description}
                         </Typography>
-                        <List dense>
-                          <ListItem>
-                            <ListItemIcon>
-                              <CalendarIcon fontSize="small" />
-                            </ListItemIcon>
-                            <ListItemText primary="Date" secondary={event.date} />
-                          </ListItem>
-                          <ListItem>
-                            <ListItemIcon>
-                              <TimeIcon fontSize="small" />
-                            </ListItemIcon>
-                            <ListItemText primary="Time" secondary={event.time} />
-                          </ListItem>
-                          <ListItem>
-                            <ListItemIcon>
-                              <LocationIcon fontSize="small" />
-                            </ListItemIcon>
-                            <ListItemText primary="Location" secondary={event.location} />
-                          </ListItem>
-                        </List>
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                          <CalendarIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                          <Typography variant="body2" color="text.secondary">
+                            {event.isMultiDay ? (
+                              <>
+                                {formatDate(event.startDate || event.date)} - {formatDate(event.endDate || event.date)}
+                              </>
+                            ) : (
+                              formatDate(event.date)
+                            )}
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                          <TimeIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                          <Typography variant="body2" color="text.secondary">
+                            {event.isMultiDay ? (
+                              <>
+                                {event.startTime || event.time} - {event.endTime || event.time}
+                              </>
+                            ) : (
+                              event.time
+                            )}
+                          </Typography>
+                        </Box>
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <LocationIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                          <Typography variant="body2" color="text.secondary">
+                            {event.location}
+                          </Typography>
+                        </Box>
+                        
+                        {event.registrationUrl && (
+                          <Box sx={{ mt: 2 }}>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              color="primary"
+                              href={event.registrationUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              sx={{ borderRadius: '8px', textTransform: 'none' }}
+                              fullWidth
+                            >
+                              Register Now
+                            </Button>
+                          </Box>
+                        )}
                       </CardContent>
-                      <CardActions sx={{ justifyContent: 'space-between' }}>
-                        <Box>
+                      <CardActions sx={{ justifyContent: 'space-between', p: 2, pt: 0 }}>
+                        <Box display="flex" alignItems="center">
                           <Button 
                             size="small" 
                             startIcon={<ArrowForwardIcon />}
@@ -605,19 +711,8 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
                           <IconButton 
                             size="small" 
                             onClick={() => handleShare(event)}
-                            sx={{ mr: 1 }}
                           >
                             <ShareIcon />
-                          </IconButton>
-                          <IconButton 
-                            size="small"
-                            onClick={() => handleBookmark(event.id)}
-                          >
-                            {bookmarkedItems.has(event.id) ? (
-                              <BookmarkIcon color="primary" />
-                            ) : (
-                              <BookmarkBorderIcon />
-                            )}
                           </IconButton>
                         </Box>
                       </CardActions>
@@ -636,14 +731,14 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
         TransitionComponent={Fade}
         transitionDuration={300}
       >
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6">
+            <Typography variant="h6" component="h2" fontWeight="600">
               {selectedItem?.title}
             </Typography>
             <Box>
@@ -656,17 +751,6 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
                   >
                     <ShareIcon />
                   </IconButton>
-                  <IconButton 
-                    size="small"
-                    onClick={() => handleBookmark(selectedItem.id)}
-                    sx={{ mr: 1 }}
-                  >
-                    {bookmarkedItems.has(selectedItem.id) ? (
-                      <BookmarkIcon color="primary" />
-                    ) : (
-                      <BookmarkBorderIcon />
-                    )}
-                  </IconButton>
                 </>
               )}
               <IconButton onClick={handleCloseDialog} size="small">
@@ -675,68 +759,169 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
             </Box>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ p: 3 }}>
           {selectedItem && (
             'content' in selectedItem ? (
               // News content
               <>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                   <Typography color="textSecondary">
-                    {(selectedItem as NewsItem).category} • {selectedItem.date}
+                    {selectedItem.category} • {selectedItem.date}
                   </Typography>
-                  <Chip
-                    label={(selectedItem as NewsItem).priority}
-                    color={getPriorityColor((selectedItem as NewsItem).priority)}
-                    size="small"
-                  />
                 </Box>
-                <Typography variant="body1">
-                  {(selectedItem as NewsItem).content}
+                <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+                  {selectedItem.content}
                 </Typography>
               </>
             ) : (
               // Event content
               <>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography color="textSecondary">
-                    {selectedItem.date}
-                  </Typography>
-                  <Chip
-                    label={(selectedItem as EventItem).type}
-                    color={getEventTypeColor((selectedItem as EventItem).type)}
-                    size="small"
-                  />
-                </Box>
-                <Typography variant="body1" paragraph>
-                  {(selectedItem as EventItem).description}
+                {/* Hero section with image if available */}
+                {selectedItem.imageUrl && (
+                  <Box sx={{ 
+                    width: '100%', 
+                    height: 250, 
+                    overflow: 'hidden', 
+                    borderRadius: 1,
+                    mb: 3,
+                    position: 'relative'
+                  }}>
+                    <img 
+                      src={selectedItem.imageUrl} 
+                      alt={selectedItem.title} 
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: 'cover',
+                        borderRadius: 'inherit'
+                      }}
+                    />
+                    <Box 
+                      sx={{ 
+                        position: 'absolute', 
+                        top: 16, 
+                        right: 16
+                      }}
+                    >
+                      <Chip
+                        label={selectedItem.type.charAt(0).toUpperCase() + selectedItem.type.slice(1)}
+                        color={getEventTypeColor(selectedItem.type)}
+                        size="small"
+                        sx={{ 
+                          fontWeight: 600,
+                          boxShadow: 2
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                )}
+                
+                {/* Event type chip if no image */}
+                {!selectedItem.imageUrl && (
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography color="textSecondary">
+                      {selectedItem.isMultiDay ? (
+                        <>
+                          {formatDate(selectedItem.startDate || selectedItem.date)} - {formatDate(selectedItem.endDate || selectedItem.date)}
+                        </>
+                      ) : (
+                        formatDate(selectedItem.date)
+                      )}
+                    </Typography>
+                    <Chip
+                      label={selectedItem.type.charAt(0).toUpperCase() + selectedItem.type.slice(1)}
+                      color={getEventTypeColor(selectedItem.type)}
+                      size="small"
+                    />
+                  </Box>
+                )}
+                
+                {/* Description */}
+                <Typography variant="body1" paragraph sx={{ whiteSpace: 'pre-line', mb: 4 }}>
+                  {selectedItem.description}
                 </Typography>
-                <List>
-                  <ListItem>
-                    <ListItemIcon>
-                      <CalendarIcon />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Date & Time" 
-                      secondary={`${selectedItem.date}, ${(selectedItem as EventItem).time}`} 
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <LocationIcon />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Location" 
-                      secondary={(selectedItem as EventItem).location} 
-                    />
-                  </ListItem>
-                </List>
+                
+                {/* Event details */}
+                <Paper elevation={0} sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, mb: 3 }}>
+                  <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2 }}>
+                    Event Details
+                  </Typography>
+                  
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                        <CalendarIcon sx={{ mr: 2, color: 'primary.main' }} />
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            Date
+                          </Typography>
+                          <Typography variant="body2">
+                            {selectedItem.isMultiDay ? (
+                              <>
+                                {formatDate(selectedItem.startDate || selectedItem.date)} - {formatDate(selectedItem.endDate || selectedItem.date)}
+                              </>
+                            ) : (
+                              formatDate(selectedItem.date)
+                            )}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Grid>
+                    
+                    <Grid item xs={12} sm={6}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                        <TimeIcon sx={{ mr: 2, color: 'primary.main' }} />
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            Time
+                          </Typography>
+                          <Typography variant="body2">
+                            {selectedItem.isMultiDay ? (
+                              <>
+                                {selectedItem.startTime || selectedItem.time} - {selectedItem.endTime || selectedItem.time}
+                              </>
+                            ) : (
+                              selectedItem.time
+                            )}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Grid>
+                    
+                    <Grid item xs={12}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                        <LocationIcon sx={{ mr: 2, color: 'primary.main' }} />
+                        <Box>
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            Location
+                          </Typography>
+                          <Typography variant="body2">
+                            {selectedItem.location}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </Paper>
               </>
             )
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Close</Button>
-          {selectedItem && 'type' in selectedItem && (
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseDialog} variant="outlined">Close</Button>
+          {selectedItem && 'type' in selectedItem && selectedItem.registrationUrl && (
+            <Button 
+              variant="contained" 
+              color="primary"
+              href={selectedItem.registrationUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              startIcon={<ArrowForwardIcon />}
+            >
+              Register Now
+            </Button>
+          )}
+          {selectedItem && 'type' in selectedItem && !selectedItem.registrationUrl && (
             <Button 
               variant="contained" 
               onClick={() => {
@@ -744,7 +929,7 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
                 navigate(`/events/${selectedItem.id}`);
               }}
             >
-              Register for Event
+              View Event Page
             </Button>
           )}
         </DialogActions>
@@ -757,7 +942,7 @@ const NewsAndEvents: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => 
       >
         <Alert 
           onClose={() => setSnackbar({ ...snackbar, open: false })} 
-          severity="success" 
+          severity={snackbar.severity} 
           variant="filled"
         >
           {snackbar.message}

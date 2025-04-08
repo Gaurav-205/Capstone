@@ -76,17 +76,31 @@ const SetPassword: React.FC = () => {
           return;
         }
 
-        // Get current user data
-        const userData = await authService.getCurrentUser();
-        
-        // If user has already set password, redirect to dashboard
-        if (userData && userData.hasSetPassword) {
+        try {
+          // Get current user data
+          const userData = await authService.getCurrentUser();
+          
+          // If user has already set password, redirect to dashboard
+          if (userData && userData.hasSetPassword) {
+            setError({
+              title: 'Password Already Set',
+              message: 'You have already set your password.',
+              action: 'Redirecting to dashboard...'
+            });
+            setTimeout(() => navigate('/dashboard', { replace: true }), 3000);
+            return;
+          }
+        } catch (userErr) {
+          console.error('Failed to get user data:', userErr);
           setError({
-            title: 'Password Already Set',
-            message: 'You have already set your password.',
-            action: 'Redirecting to dashboard...'
+            title: 'Authentication Error',
+            message: 'Failed to verify user data. Please log in again.',
+            action: 'Redirecting to login page...'
           });
-          setTimeout(() => navigate('/dashboard', { replace: true }), 3000);
+          setTimeout(() => {
+            authService.clearAuth();
+            navigate('/login');
+          }, 3000);
           return;
         }
 

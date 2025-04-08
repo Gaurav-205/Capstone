@@ -1109,71 +1109,61 @@ const CampusMap: React.FC = () => {
                   </Box>
 
                   {/* Contact Information */}
+                  {selectedLocation.details?.contact && (
                   <Box sx={{ mb: 4 }}>
                     <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
                       Contact Information
                     </Typography>
                     <List dense>
+                        {selectedLocation.details.contact?.phone && (
                       <ListItem>
-                        <ListItemIcon>
-                          <LocationOn />
-                        </ListItemIcon>
+                            <ListItemIcon><Phone sx={{ color: '#3b82f6' }} /></ListItemIcon>
                         <ListItemText 
-                          primary="Address"
-                          secondary={selectedLocation.address}
+                              primary="Phone"
+                              secondary={selectedLocation.details.contact?.phone}
                           sx={{ '& .MuiTypography-root': { color: '#475569' } }}
                         />
                       </ListItem>
-                      {selectedLocation.details?.contact && (
-                        <>
+                        )}
+                        {selectedLocation.details.contact?.email && (
                       <ListItem>
-                        <ListItemIcon>
-                          <Phone />
-                        </ListItemIcon>
-                        <ListItemText 
-                          primary="Reception"
-                          secondary={selectedLocation.details.contact.phone}
-                          sx={{ '& .MuiTypography-root': { color: '#475569' } }}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon>
-                          <Email />
-                        </ListItemIcon>
+                            <ListItemIcon><Email sx={{ color: '#3b82f6' }} /></ListItemIcon>
                         <ListItemText 
                           primary="Email"
-                          secondary={selectedLocation.details.contact.email}
+                              secondary={selectedLocation.details.contact?.email}
                           sx={{ '& .MuiTypography-root': { color: '#475569' } }}
                         />
                       </ListItem>
-                      {selectedLocation.details.contact.website && (
+                        )}
+                        {selectedLocation.details.contact?.website && (
                         <ListItem>
-                          <ListItemIcon>
-                            <Web />
-                          </ListItemIcon>
+                            <ListItemIcon><Web sx={{ color: '#3b82f6' }} /></ListItemIcon>
                           <ListItemText 
                             primary="Website"
-                            secondary={selectedLocation.details.contact.website}
+                              secondary={selectedLocation.details.contact?.website}
                             sx={{ '& .MuiTypography-root': { color: '#475569' } }}
                           />
                         </ListItem>
                       )}
-                        </>
+                      </List>
+                    </Box>
                       )}
+
                       {selectedLocation.details?.timings && (
+                    <Box sx={{ mb: 4 }}>
+                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
+                        Operating Hours
+                      </Typography>
                       <ListItem>
-                        <ListItemIcon>
-                          <AccessTime />
-                        </ListItemIcon>
+                        <ListItemIcon><AccessTime sx={{ color: '#3b82f6' }} /></ListItemIcon>
                         <ListItemText 
                           primary="Opening Hours"
-                          secondary={selectedLocation.details.timings}
+                          secondary={selectedLocation.details?.timings}
                           sx={{ '& .MuiTypography-root': { color: '#475569' } }}
                         />
                       </ListItem>
-                      )}
-                    </List>
                   </Box>
+                  )}
 
                   {/* Admission Fees */}
                   {selectedLocation.admissionFees && (
@@ -1208,325 +1198,18 @@ const CampusMap: React.FC = () => {
                   )}
 
                   {/* Facilities */}
-                  <Box sx={{ mb: 4 }}>
-                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
-                      Facilities & Amenities
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {selectedLocation.details?.facilities?.map((facility) => (
-                        <Chip
-                          key={facility}
-                          label={facility}
-                          sx={{ 
-                            bgcolor: '#f1f5f9',
-                            color: '#475569',
-                            '&:hover': { bgcolor: '#e2e8f0' }
-                          }}
-                        />
-                      ))}
-                    </Box>
-                  </Box>
-
-                  {/* Sports Complex Features */}
-                  {selectedLocation.details?.features && (
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
-                        Complex Features
-                      </Typography>
-                    <Box sx={{ mb: 3 }}>
-                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
-                          Facility Highlights
-                      </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                          {selectedLocation.details.features.highlights.map((highlight) => (
-                            <Chip 
-                              key={highlight}
-                              label={highlight}
-                              sx={{ 
-                                bgcolor: '#fff7ed',
-                                color: '#c2410c',
-                                border: '1px solid #fed7aa',
-                                '&:hover': { bgcolor: '#ffedd5' }
-                              }}
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
-                          Available Amenities
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                          {selectedLocation.details.features.amenities.map((amenity) => (
-                            <Chip 
-                              key={amenity}
-                              label={amenity}
-                              sx={{ 
-                                bgcolor: '#f0fdf4',
-                                color: '#15803d',
-                                border: '1px solid #bbf7d0',
-                                '&:hover': { bgcolor: '#dcfce7' }
-                              }}
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                    </Box>
-                  )}
-
-                  {/* Membership Information */}
-                  {selectedLocation.details?.membership && (
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
-                        Membership & Access
-                      </Typography>
-                      <Box sx={{ mb: 3 }}>
-                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
-                          Open To
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                          {selectedLocation.details.membership.categories.map((category) => (
-                            <Chip 
-                              key={category}
-                              label={category}
-                              sx={{ 
-                                bgcolor: '#eff6ff',
-                                color: '#1d4ed8',
-                                border: '1px solid #bfdbfe',
-                                '&:hover': { bgcolor: '#dbeafe' }
-                              }}
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                      <List dense>
-                        {selectedLocation.details.membership.access.map((access) => (
-                          <ListItem key={access.type}>
-                            <ListItemIcon>
-                              <CheckCircle sx={{ color: '#16a34a' }} />
-                            </ListItemIcon>
+                  {selectedLocation.details?.facilities && selectedLocation.details?.facilities.length > 0 ? (
+                    selectedLocation.details?.facilities?.map((facility) => (
+                      <ListItem key={facility}>
+                        <ListItemIcon><CheckCircle sx={{ color: '#16a34a' }} /></ListItemIcon>
                             <ListItemText 
-                              primary={access.type}
-                              secondary={access.requirements}
-                              sx={{ 
-                                '& .MuiTypography-primary': { 
-                                  color: '#475569',
-                                  fontWeight: 500
-                                },
-                                '& .MuiTypography-secondary': {
-                                  color: '#64748b'
-                                }
-                              }}
+                          primary={facility}
+                          sx={{ '& .MuiTypography-root': { color: '#475569' } }}
                             />
                           </ListItem>
-                        ))}
-                      </List>
-                    </Box>
-                  )}
-
-                  {/* Restaurant Specialties */}
-                  {selectedLocation?.details?.specialties && (
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
-                        Menu Highlights
-                      </Typography>
-                    <Box sx={{ mb: 3 }}>
-                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
-                          Popular Dishes
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                          {selectedLocation.details?.specialties?.popular?.map((dish) => (
-                            <Chip 
-                              key={dish}
-                              label={dish}
-                              sx={{ 
-                                bgcolor: '#fff7ed',
-                                color: '#c2410c',
-                                border: '1px solid #fed7aa',
-                                '&:hover': { bgcolor: '#ffedd5' }
-                              }}
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
-                          Customer Favorites
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                          {selectedLocation.details?.specialties?.customerFavorites?.map((dish) => (
-                            <Chip 
-                              key={dish}
-                              label={dish}
-                              sx={{ 
-                                bgcolor: '#f0fdf4',
-                                color: '#15803d',
-                                border: '1px solid #bbf7d0',
-                                '&:hover': { bgcolor: '#dcfce7' }
-                              }}
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                    </Box>
-                  )}
-
-                  {/* Restaurant Services */}
-                  {selectedLocation?.details?.services && (
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
-                        Available Services
-                      </Typography>
-                      <List dense>
-                        {selectedLocation.details?.services?.map((service) => (
-                          <ListItem key={service.name}>
-                            <ListItemIcon>
-                              {service.available ? (
-                                <CheckCircle sx={{ color: '#16a34a' }} />
-                              ) : (
-                                <Cancel sx={{ color: '#dc2626' }} />
-                              )}
-                            </ListItemIcon>
-                            <ListItemText 
-                              primary={service.name}
-                              sx={{ 
-                                '& .MuiTypography-root': { 
-                                  color: service.available ? '#15803d' : '#dc2626',
-                                  fontWeight: 500
-                                }
-                              }}
-                            />
-                          </ListItem>
-                        ))}
-                      </List>
-                    </Box>
-                  )}
-
-                  {/* Events */}
-                  {selectedLocation?.details?.events && (
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
-                        Regular Events
-                      </Typography>
-                      <List dense>
-                        {selectedLocation.details?.events?.map((event) => (
-                          <ListItem key={event.name}>
-                            <ListItemText
-                              primary={event.name}
-                              secondary={`${event.date} - ${event.description}`}
-                              sx={{ '& .MuiTypography-root': { color: '#475569' } }}
-                            />
-                          </ListItem>
-                        ))}
-                      </List>
-                    </Box>
-                  )}
-
-                  {/* Academic Programs */}
-                  {selectedLocation?.details?.academic && (
-                    <Box sx={{ mb: 4 }}>
-                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1e293b' }}>
-                        Academic Programs
-                      </Typography>
-                      <Box sx={{ mb: 3 }}>
-                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
-                          Available Programs
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                          {selectedLocation.details?.academic?.programs?.map((program) => (
-                            <Chip 
-                              key={program}
-                              label={program}
-                              sx={{ 
-                                bgcolor: '#eff6ff',
-                                color: '#1d4ed8',
-                                border: '1px solid #bfdbfe',
-                                '&:hover': { bgcolor: '#dbeafe' }
-                              }}
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                      <Box sx={{ mb: 3 }}>
-                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
-                          Entrance Exams Accepted
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                          {selectedLocation.details?.academic?.entranceExams?.map((exam) => (
-                            <Chip 
-                              key={exam}
-                              label={exam}
-                              sx={{ 
-                                bgcolor: '#f0fdf4',
-                                color: '#15803d',
-                                border: '1px solid #bbf7d0',
-                                '&:hover': { bgcolor: '#dcfce7' }
-                              }}
-                            />
-                          ))}
-                        </Box>
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1, fontWeight: 600 }}>
-                          Placement Highlights
-                        </Typography>
-                        <Paper 
-                          elevation={0}
-                          sx={{ 
-                            p: 2, 
-                            bgcolor: '#f8fafc',
-                            borderRadius: 2
-                          }}
-                        >
-                          <Grid container spacing={2}>
-                            <Grid item xs={12} sm={6}>
-                              <Typography variant="subtitle2" sx={{ color: '#475569', mb: 0.5 }}>
-                                Placement Rate
-                              </Typography>
-                              <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600 }}>
-                                {selectedLocation.details?.academic?.placement?.rate}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={12} sm={6}>
-                              <Typography variant="subtitle2" sx={{ color: '#475569', mb: 0.5 }}>
-                                Highest Package
-                              </Typography>
-                              <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600 }}>
-                                {selectedLocation.details?.academic?.placement?.highestPackage}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={12} sm={6}>
-                              <Typography variant="subtitle2" sx={{ color: '#475569', mb: 0.5 }}>
-                                Average Package
-                              </Typography>
-                              <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600 }}>
-                                {selectedLocation.details?.academic?.placement?.averagePackage}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={12}>
-                              <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1 }}>
-                                Top Recruiters
-                              </Typography>
-                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {selectedLocation.details?.academic?.placement?.topRecruiters?.map((recruiter) => (
-                                  <Chip 
-                                    key={recruiter}
-                                    label={recruiter}
-                                    size="small"
-                                    sx={{ 
-                                      bgcolor: '#fff7ed',
-                                      color: '#c2410c',
-                                      border: '1px solid #fed7aa',
-                                      '&:hover': { bgcolor: '#ffedd5' }
-                                    }}
-                                  />
-                                ))}
-                              </Box>
-                            </Grid>
-                          </Grid>
-                        </Paper>
-                      </Box>
-                    </Box>
+                    ))
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">No facilities information available</Typography>
                   )}
                 </Grid>
 
@@ -1574,14 +1257,14 @@ const CampusMap: React.FC = () => {
                       <Typography variant="subtitle2" sx={{ color: '#475569', mb: 1 }}>
                         Capacity
                       </Typography>
-                      <Typography variant="h5" sx={{ color: '#1e293b', fontWeight: 600 }}>
-                        {selectedLocation.details?.capacity?.toLocaleString()} people
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: '#0f172a' }}>
+                        {selectedLocation.details?.capacity ? selectedLocation.details.capacity.toLocaleString() : 'N/A'} people
                       </Typography>
       </Paper>
                   )}
 
                   {/* Accessibility Features */}
-                  {selectedLocation?.details?.accessibility && (
+                  {selectedLocation?.details?.accessibility && selectedLocation.details?.accessibility.length > 0 && (
                     <Paper 
                       elevation={0}
                       sx={{ 

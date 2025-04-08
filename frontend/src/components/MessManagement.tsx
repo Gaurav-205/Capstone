@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Paper,
@@ -29,9 +29,6 @@ import {
   ListItemIcon,
   ListItemText,
   Avatar,
-  SpeedDial,
-  SpeedDialAction,
-  SpeedDialIcon,
   FormControl,
   InputLabel,
   Select,
@@ -64,8 +61,6 @@ import {
   FreeBreakfast,
   LunchDining,
   NightsStay,
-  Notifications,
-  NotificationsActive,
   Feedback,
   Send,
   ThumbUp,
@@ -92,7 +87,6 @@ interface MenuItem {
   description?: string;
   price?: number;
   isVeg: boolean;
-  rating?: number;
   available: boolean;
 }
 
@@ -127,15 +121,6 @@ interface Canteen {
   menu: MenuItem[];
 }
 
-interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  date: string;
-  type: 'important' | 'general';
-  facility: string;
-}
-
 interface FeedbackItem {
   id: string;
   userId: string;
@@ -168,13 +153,26 @@ interface AdminState {
 }
 
 interface AdminDashboardProps {
-  setShowAnnouncementDialog: (show: boolean) => void;
   setShowMessDialog: (show: boolean) => void;
   setShowTimingsDialog: (show: boolean) => void;
   setShowReportsDialog: (show: boolean) => void;
   setShowAdminPanel: (show: boolean) => void;
   getFeedbackStatus: (id: string) => FeedbackStatus['status'];
   handleFeedbackResponse: (id: string) => void;
+  diningStats: {
+    total: number;
+    pending: number;
+    resolved: number;
+    averageRating: number;
+  };
+}
+
+// Add a new interface for facility ratings
+interface FacilityRating {
+  facilityId: string;
+  type: 'mess' | 'canteen';
+  averageRating: number;
+  totalReviews: number;
 }
 
 // Sample data for messes
@@ -225,34 +223,14 @@ const canteens: Canteen[] = [
     rating: 4.5,
     timings: '9:00 AM - 9:00 PM',
     menu: [
-      { name: 'Veg Burger', description: 'Fresh vegetable patty with lettuce and cheese', price: 60, isVeg: true, rating: 4.3, available: true },
-      { name: 'Masala Dosa', description: 'Crispy rice crepe with potato filling', price: 50, isVeg: true, rating: 4.5, available: true },
-      { name: 'Cold Coffee', description: 'Chilled coffee with ice cream', price: 40, isVeg: true, rating: 4.2, available: true }
+      { name: 'Veg Burger', description: 'Fresh vegetable patty with lettuce and cheese', price: 60, isVeg: true, available: true },
+      { name: 'Masala Dosa', description: 'Crispy rice crepe with potato filling', price: 50, isVeg: true, available: true },
+      { name: 'Cold Coffee', description: 'Chilled coffee with ice cream', price: 40, isVeg: true, available: true }
     ]
   },
   // Add more canteens here
 ];
 
-const announcements: Announcement[] = [
-  {
-    id: 'ann-1',
-    title: 'Special Thali Thursday',
-    content: 'Join us for a special North Indian thali this Thursday at Main Mess.',
-    date: '2024-03-21',
-    type: 'general',
-    facility: 'mess-1'
-  },
-  {
-    id: 'ann-2',
-    title: 'Maintenance Notice',
-    content: 'Tech Café will be closed for maintenance on Saturday from 2 PM to 4 PM.',
-    date: '2024-03-22',
-    type: 'important',
-    facility: 'canteen-1'
-  }
-];
-
-// Add sample feedback data
 const sampleFeedback: FeedbackItem[] = [
   {
     id: 'fb-1',
@@ -300,13 +278,13 @@ const sampleFeedbackResponses: FeedbackResponse[] = [
 ];
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
-  setShowAnnouncementDialog,
   setShowMessDialog,
   setShowTimingsDialog,
   setShowReportsDialog,
   setShowAdminPanel,
   getFeedbackStatus,
-  handleFeedbackResponse
+  handleFeedbackResponse,
+  diningStats
 }) => {
   return (
     <Box sx={{ p: 3, bgcolor: '#f8fafc', minHeight: '100vh' }}>
@@ -330,7 +308,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
-                  <Typography variant="h4" sx={{ mb: 1 }}>24</Typography>
+                  <Typography variant="h4" sx={{ mb: 1 }}>{diningStats.pending}</Typography>
                   <Typography variant="body2">New Feedback</Typography>
                 </Box>
                 <Feedback sx={{ fontSize: 40, opacity: 0.8 }} />
@@ -343,7 +321,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
-                  <Typography variant="h4" sx={{ mb: 1 }}>8</Typography>
+                  <Typography variant="h4" sx={{ mb: 1 }}>{diningStats.pending}</Typography>
                   <Typography variant="body2">Pending Responses</Typography>
                 </Box>
                 <Comment sx={{ fontSize: 40, opacity: 0.8 }} />
@@ -356,7 +334,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
-                  <Typography variant="h4" sx={{ mb: 1 }}>156</Typography>
+                  <Typography variant="h4" sx={{ mb: 1 }}>{diningStats.total}</Typography>
                   <Typography variant="body2">Total Feedback</Typography>
                 </Box>
                 <Assessment sx={{ fontSize: 40, opacity: 0.8 }} />
@@ -369,7 +347,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
-                  <Typography variant="h4" sx={{ mb: 1 }}>4.2</Typography>
+                  <Typography variant="h4" sx={{ mb: 1 }}>{diningStats.averageRating}</Typography>
                   <Typography variant="body2">Avg. Rating</Typography>
                 </Box>
                 <Star sx={{ fontSize: 40, opacity: 0.8 }} />
@@ -383,17 +361,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <Paper sx={{ p: 3, mb: 4, borderRadius: 2 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>Quick Actions</Typography>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={() => setShowAnnouncementDialog(true)}
-              sx={{ p: 2, justifyContent: 'flex-start' }}
-            >
-              New Announcement
-            </Button>
-          </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <Button
               fullWidth
@@ -507,20 +474,11 @@ const MessManagement: React.FC = () => {
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [admin, setAdmin] = useState<AdminState>({ 
     isAdmin: false, 
     showAdminControls: false,
     userEmail: null
   });
-  const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false);
-  const [announcementForm, setAnnouncementForm] = useState({
-    title: '',
-    content: '',
-    type: 'general',
-    facility: ''
-  });
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState<string[]>([]);
   const [feedbackPage, setFeedbackPage] = useState(0);
@@ -540,6 +498,13 @@ const MessManagement: React.FC = () => {
   const [selectedMenuType, setSelectedMenuType] = useState<'mess' | 'canteen'>('mess');
   const [selectedMenuFacility, setSelectedMenuFacility] = useState<Mess | Canteen | null>(null);
   const [expandedMenuSection, setExpandedMenuSection] = useState<string | null>(null);
+  const [facilityRatings, setFacilityRatings] = useState<Record<string, FacilityRating>>({});
+  const [diningStats, setDiningStats] = useState({
+    total: 0,
+    pending: 5, // Default value shown in the UI
+    resolved: 0,
+    averageRating: 4.2 // Default value shown in the UI
+  });
 
   useEffect(() => {
     // Get the email from URL parameters
@@ -554,6 +519,51 @@ const MessManagement: React.FC = () => {
       showAdminControls: currentUserEmail === authorizedEmail
     }));
   }, []);
+
+  const fetchDiningStatistics = useCallback(async () => {
+    try {
+      // Get dining statistics
+      const statsResponse = await fetch(
+        `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/feedback/dining-statistics`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        if (statsData.success && statsData.data) {
+          setDiningStats({
+            total: statsData.data.total || 0,
+            pending: statsData.data.pending || 0,
+            resolved: statsData.data.resolved || 0,
+            averageRating: 0 // Will be updated below
+          });
+        }
+      }
+
+      // Calculate average rating from all facility ratings
+      const allRatings = Object.values(facilityRatings);
+      if (allRatings.length > 0) {
+        const totalRating = allRatings.reduce((sum, facility) => 
+          sum + (facility.averageRating || 0), 0);
+        const avgRating = totalRating / allRatings.length;
+        
+        setDiningStats(prev => ({
+          ...prev,
+          averageRating: parseFloat(avgRating.toFixed(1))
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching dining statistics:', error);
+    }
+  }, [facilityRatings]);
+
+  useEffect(() => {
+    fetchDiningStatistics();
+  }, [fetchDiningStatistics]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setSelectedTab(newValue);
@@ -574,28 +584,126 @@ const MessManagement: React.FC = () => {
     }
   };
 
-  const handleFeedbackSubmit = () => {
-    setShowSnackbar(true);
-    setSnackbarMessage('Thank you for your feedback!');
-    setShowFeedback(false);
-    setFeedbackRating(0);
-    setFeedbackComment('');
-  };
+  const fetchFacilityRatings = useCallback(async () => {
+    try {
+      // Fetch ratings for all messes first
+      const messRatingPromises = messes.map(async (mess) => {
+        const response = await fetch(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/feedback/facility-rating?facilityId=${mess.id}&type=mess`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          return { facilityId: mess.id, ...data.data };
+        }
+        return null;
+      });
+      
+      // Then fetch ratings for all canteens
+      const canteenRatingPromises = canteens.map(async (canteen) => {
+        const response = await fetch(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/feedback/facility-rating?facilityId=${canteen.id}&type=canteen`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          return { facilityId: canteen.id, ...data.data };
+        }
+        return null;
+      });
+      
+      // Wait for all promises to resolve
+      const messRatings = await Promise.all(messRatingPromises);
+      const canteenRatings = await Promise.all(canteenRatingPromises);
+      
+      // Combine all ratings into a single object
+      const allRatings = [...messRatings, ...canteenRatings]
+        .filter(Boolean)
+        .reduce((acc, rating) => {
+          if (rating) {
+            acc[rating.facilityId] = rating;
+          }
+          return acc;
+        }, {} as Record<string, FacilityRating>);
+      
+      setFacilityRatings(allRatings);
+    } catch (error) {
+      console.error('Error fetching facility ratings:', error);
+    }
+  }, [messes, canteens]);
 
-  const handleAnnouncementClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
+  useEffect(() => {
+    fetchFacilityRatings();
+  }, [fetchFacilityRatings]);
 
-  const handleAnnouncementSubmit = () => {
-    setShowAnnouncementDialog(false);
-    setAnnouncementForm({ title: '', content: '', type: 'general', facility: '' });
-    setSnackbarMessage('Announcement saved successfully!');
-    setShowSnackbar(true);
-  };
+  const handleFeedbackSubmit = async () => {
+    try {
+      // Get facility details
+      const facilityId = feedbackItem?.name || '';
+      const facilityType = selectedTab === 0 ? 'mess' : 'canteen';
+      
+      // Find the actual facility to get its name
+      const selectedFacility = facilityType === 'mess' 
+        ? messes.find(m => m.id === facilityId)
+        : canteens.find(c => c.id === facilityId);
+      
+      if (!selectedFacility) {
+        throw new Error('Invalid facility selected');
+      }
 
-  const handleAnnouncementDelete = (id: string) => {
-    setSnackbarMessage('Announcement deleted successfully!');
-    setShowSnackbar(true);
+      // Prepare feedback data
+      const feedbackData = {
+        facilityId: facilityId,
+        facilityName: selectedFacility.name,
+        facilityLocation: selectedFacility.location,
+        rating: feedbackRating,
+        comment: feedbackComment,
+        type: facilityType,
+        date: new Date().toISOString()
+      };
+
+      // Make API call to save feedback
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/feedback/dining`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(feedbackData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to submit feedback');
+      }
+
+      // Show success message
+      setSnackbarMessage(`Thank you for your feedback on ${selectedFacility.name}!`);
+      setShowSnackbar(true);
+      
+      // Reset form
+      setShowFeedback(false);
+      setFeedbackRating(0);
+      setFeedbackComment('');
+      setFeedbackItem(null);
+      
+      // Refresh ratings
+      fetchFacilityRatings();
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      setSnackbarMessage(error instanceof Error ? error.message : 'Failed to submit feedback. Please try again.');
+      setShowSnackbar(true);
+    }
   };
 
   const handleAdminPanelOpen = () => {
@@ -671,19 +779,6 @@ const MessManagement: React.FC = () => {
                     fontSize: '0.75rem'
                   }}
                 />
-                <IconButton
-                  size="small"
-                  onClick={() => {
-                    setFeedbackItem(item);
-                    setShowFeedback(true);
-                  }}
-                  sx={{ 
-                    color: '#64748b',
-                    '&:hover': { color: '#3b82f6' }
-                  }}
-                >
-                  <Feedback fontSize="small" />
-                </IconButton>
               </Box>
             </Box>
             {item.description && (
@@ -735,8 +830,7 @@ const MessManagement: React.FC = () => {
             <Typography variant="body2" sx={{ color: '#64748b', mb: 1 }}>
               {item.description}
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Rating value={item.rating} readOnly size="small" />
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
               <Chip
                 size="small"
                 label={item.available ? 'Available' : 'Sold Out'}
@@ -841,7 +935,7 @@ const MessManagement: React.FC = () => {
                             <Typography variant="subtitle2" sx={{ color: '#1e293b' }}>
                               {item.name}
                             </Typography>
-                            <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Chip
                                 size="small"
                                 label="Veg"
@@ -851,15 +945,6 @@ const MessManagement: React.FC = () => {
                                   fontSize: '0.75rem'
                                 }}
                               />
-                              <IconButton
-                                size="small"
-                                onClick={() => {
-                                  setFeedbackItem(item);
-                                  setShowFeedback(true);
-                                }}
-                              >
-                                <Feedback fontSize="small" />
-                              </IconButton>
                             </Box>
                           </Box>
                           {item.description && (
@@ -900,8 +985,7 @@ const MessManagement: React.FC = () => {
                   <Typography variant="body2" sx={{ color: '#64748b', mb: 1 }}>
                     {item.description}
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Rating value={item.rating} readOnly size="small" />
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                     <Chip
                       size="small"
                       label={item.available ? 'Available' : 'Sold Out'}
@@ -924,13 +1008,13 @@ const MessManagement: React.FC = () => {
   if (admin.userEmail === 'gauravkhandelwal205@gmail.com') {
     return (
       <AdminDashboard
-        setShowAnnouncementDialog={setShowAnnouncementDialog}
         setShowMessDialog={setShowMessDialog}
         setShowTimingsDialog={setShowTimingsDialog}
         setShowReportsDialog={setShowReportsDialog}
         setShowAdminPanel={setShowAdminPanel}
         getFeedbackStatus={getFeedbackStatus}
         handleFeedbackResponse={handleFeedbackResponse}
+        diningStats={diningStats}
       />
     );
   }
@@ -954,13 +1038,6 @@ const MessManagement: React.FC = () => {
           >
             Give Feedback
           </Button>
-          <Tooltip title="Announcements">
-            <IconButton onClick={handleAnnouncementClick}>
-              <Badge badgeContent={announcements.length} color="error">
-                <NotificationsActive />
-              </Badge>
-            </IconButton>
-          </Tooltip>
           {admin.userEmail === 'gauravkhandelwal205@gmail.com' && (
             <Tooltip title="Admin Panel">
               <IconButton 
@@ -974,109 +1051,12 @@ const MessManagement: React.FC = () => {
         </Box>
       </Box>
 
-      {admin.userEmail === 'gauravkhandelwal205@gmail.com' && (
-        <SpeedDial
-          ariaLabel="Admin Controls"
-          sx={{ position: 'fixed', bottom: 16, right: 16 }}
-          icon={<SpeedDialIcon />}
-        >
-          <SpeedDialAction
-            icon={<AddIcon />}
-            tooltipTitle="New Announcement"
-            onClick={() => {
-              setSelectedAnnouncement(null);
-              setShowAnnouncementDialog(true);
-            }}
-          />
-        </SpeedDial>
-      )}
-
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
-        PaperProps={{
-          sx: {
-            width: 320,
-            maxHeight: 400,
-            borderRadius: '12px',
-            mt: 1.5
-          }
-        }}
-      >
-        <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0' }}>
-          <Typography variant="subtitle1" fontWeight={600}>
-            Announcements
-          </Typography>
-        </Box>
-        {announcements.map((announcement) => (
-          <MenuItem 
-            key={announcement.id}
-            sx={{ 
-              py: 2,
-              px: 2,
-              borderBottom: '1px solid #f1f5f9',
-              '&:last-child': { borderBottom: 'none' }
-            }}
-          >
-            <Box sx={{ width: '100%' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {announcement.type === 'important' ? (
-                    <NotificationsActive sx={{ color: '#ef4444', fontSize: 20 }} />
-                  ) : (
-                    <Notifications sx={{ color: '#3b82f6', fontSize: 20 }} />
-                  )}
-                  <Typography variant="subtitle2" sx={{ color: '#1e293b' }}>
-                    {announcement.title}
-                  </Typography>
-                </Box>
-                {admin.userEmail === 'gauravkhandelwal205@gmail.com' && (
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedAnnouncement(announcement);
-                        setAnnouncementForm({
-                          title: announcement.title,
-                          content: announcement.content,
-                          type: announcement.type,
-                          facility: announcement.facility
-                        });
-                        setShowAnnouncementDialog(true);
-                      }}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAnnouncementDelete(announcement.id);
-                      }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                )}
-              </Box>
-              <Typography variant="body2" sx={{ color: '#64748b' }}>
-                {announcement.content}
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#94a3b8', mt: 1, display: 'block' }}>
-                {new Date(announcement.date).toLocaleDateString()}
-              </Typography>
-            </Box>
-          </MenuItem>
-        ))}
-      </Menu>
-
       <Dialog
         open={showFeedback}
         onClose={() => setShowFeedback(false)}
         maxWidth="sm"
         fullWidth
+        sx={{ '& .MuiDialog-paper': { borderRadius: '16px' } }}
       >
         <DialogTitle sx={{ borderBottom: '1px solid #e2e8f0', px: 3, py: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1088,22 +1068,88 @@ const MessManagement: React.FC = () => {
         </DialogTitle>
         <DialogContent sx={{ p: 3 }}>
           <Stack spacing={3}>
-            <FormControl fullWidth>
-              <InputLabel>Facility</InputLabel>
+            {/* Facility Type Selector */}
+            <Box>
+              <Tabs 
+                value={selectedTab} 
+                onChange={handleTabChange}
+                variant="fullWidth"
+                sx={{ mb: 2, borderBottom: '1px solid #e2e8f0' }}
+              >
+                <Tab 
+                  icon={<Restaurant sx={{ mr: 1 }} />} 
+                  label="Mess" 
+                  value={0}
+                  sx={{ textTransform: 'none' }}
+                />
+                <Tab 
+                  icon={<LocalCafe sx={{ mr: 1 }} />} 
+                  label="Canteen" 
+                  value={1}
+                  sx={{ textTransform: 'none' }}
+                />
+              </Tabs>
+            </Box>
+
+            {/* Facility Selector */}
+            <FormControl fullWidth variant="outlined">
+              <InputLabel>{selectedTab === 0 ? 'Select Mess' : 'Select Canteen'}</InputLabel>
               <Select
                 value={feedbackItem?.name || ''}
-                label="Facility"
-                onChange={(e) => setFeedbackItem({ name: e.target.value } as MenuItem)}
+                label={selectedTab === 0 ? 'Select Mess' : 'Select Canteen'}
+                onChange={(e) => {
+                  const facilityId = e.target.value;
+                  const facility = selectedTab === 0 
+                    ? messes.find(m => m.id === facilityId)
+                    : canteens.find(c => c.id === facilityId);
+                  
+                  if (facility) {
+                    setFeedbackItem({ 
+                      name: facilityId,
+                      isVeg: true,
+                      available: true
+                    });
+                  }
+                }}
+                MenuProps={{
+                  PaperProps: {
+                    style: { maxHeight: 300 }
+                  }
+                }}
               >
-                {messes.map(mess => (
-                  <MenuItem key={mess.id} value={mess.id}>{mess.name}</MenuItem>
-                ))}
-                {canteens.map(canteen => (
-                  <MenuItem key={canteen.id} value={canteen.id}>{canteen.name}</MenuItem>
-                ))}
+                {selectedTab === 0 ? (
+                  messes.map(mess => (
+                    <MenuItem key={mess.id} value={mess.id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography>{mess.name}</Typography>
+                        <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+                          ({mess.location})
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))
+                ) : (
+                  canteens.map(canteen => (
+                    <MenuItem key={canteen.id} value={canteen.id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Typography>{canteen.name}</Typography>
+                        <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+                          ({canteen.location})
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))
+                )}
               </Select>
             </FormControl>
-            <Box>
+
+            {/* Rating */}
+            <Box sx={{ 
+              p: 2, 
+              bgcolor: '#f8fafc', 
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0' 
+            }}>
               <Typography variant="subtitle2" gutterBottom>
                 How would you rate your experience?
               </Typography>
@@ -1111,8 +1157,11 @@ const MessManagement: React.FC = () => {
                 value={feedbackRating}
                 onChange={(event, newValue) => setFeedbackRating(newValue || 0)}
                 size="large"
+                sx={{ mt: 1 }}
               />
             </Box>
+
+            {/* Comments */}
             <TextField
               fullWidth
               multiline
@@ -1121,16 +1170,26 @@ const MessManagement: React.FC = () => {
               placeholder="Share your feedback about the food quality, service, cleanliness, or any suggestions for improvement..."
               value={feedbackComment}
               onChange={(e) => setFeedbackComment(e.target.value)}
+              InputProps={{
+                sx: { borderRadius: '8px' }
+              }}
             />
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0' }}>
-          <Button onClick={() => setShowFeedback(false)}>Cancel</Button>
+        <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0', justifyContent: 'space-between' }}>
+          <Button 
+            onClick={() => setShowFeedback(false)}
+            variant="outlined"
+            sx={{ borderRadius: '8px' }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             startIcon={<Send />}
             onClick={handleFeedbackSubmit}
-            disabled={!feedbackRating || !feedbackItem}
+            disabled={!feedbackRating || !feedbackItem?.name}
+            sx={{ borderRadius: '8px' }}
           >
             Submit Feedback
           </Button>
@@ -1181,7 +1240,11 @@ const MessManagement: React.FC = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                           <Star sx={{ fontSize: 18, color: '#f59e0b', mr: 0.5 }} />
                           <Typography variant="body2" color="text.secondary">
-                            {mess.rating}
+                            {facilityRatings[mess.id]?.averageRating > 0 
+                              ? facilityRatings[mess.id]?.averageRating 
+                              : mess.rating}
+                            {facilityRatings[mess.id]?.totalReviews > 0 && 
+                              ` (${facilityRatings[mess.id]?.totalReviews} ${facilityRatings[mess.id]?.totalReviews === 1 ? 'review' : 'reviews'})`}
                           </Typography>
                         </Box>
                       </Box>
@@ -1263,7 +1326,11 @@ const MessManagement: React.FC = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                           <Star sx={{ fontSize: 18, color: '#f59e0b', mr: 0.5 }} />
                           <Typography variant="body2" color="text.secondary">
-                            {canteen.rating}
+                            {facilityRatings[canteen.id]?.averageRating > 0 
+                              ? facilityRatings[canteen.id]?.averageRating 
+                              : canteen.rating}
+                            {facilityRatings[canteen.id]?.totalReviews > 0 && 
+                              ` (${facilityRatings[canteen.id]?.totalReviews} ${facilityRatings[canteen.id]?.totalReviews === 1 ? 'review' : 'reviews'})`}
                           </Typography>
                         </Box>
                       </Box>
@@ -1343,7 +1410,11 @@ const MessManagement: React.FC = () => {
                   <Stack spacing={1}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Chip label={`Capacity: ${selectedMess.capacity} seats`} />
-                      <Chip label={`Rating: ${selectedMess.rating}/5`} />
+                      <Chip label={`Rating: ${facilityRatings[selectedMess.id]?.averageRating > 0 
+                        ? facilityRatings[selectedMess.id]?.averageRating 
+                        : selectedMess.rating}/5 ${facilityRatings[selectedMess.id]?.totalReviews > 0 
+                          ? `(${facilityRatings[selectedMess.id]?.totalReviews} ${facilityRatings[selectedMess.id]?.totalReviews === 1 ? 'review' : 'reviews'})` 
+                          : ''}`} />
                     </Box>
                   </Stack>
                 </Grid>
@@ -1559,80 +1630,6 @@ const MessManagement: React.FC = () => {
           />
         </Drawer>
       )}
-
-      <Dialog
-        open={showAnnouncementDialog}
-        onClose={() => setShowAnnouncementDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle sx={{ borderBottom: '1px solid #e2e8f0', px: 3, py: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">
-              {selectedAnnouncement ? 'Edit Announcement' : 'New Announcement'}
-            </Typography>
-            <IconButton onClick={() => setShowAnnouncementDialog(false)}>
-              <Close />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ p: 3 }}>
-          <Stack spacing={3}>
-            <TextField
-              fullWidth
-              label="Title"
-              value={announcementForm.title}
-              onChange={(e) => setAnnouncementForm(prev => ({ ...prev, title: e.target.value }))}
-            />
-            <TextField
-              fullWidth
-              multiline
-              rows={4}
-              label="Content"
-              value={announcementForm.content}
-              onChange={(e) => setAnnouncementForm(prev => ({ ...prev, content: e.target.value }))}
-            />
-            <FormControl fullWidth>
-              <InputLabel>Type</InputLabel>
-              <Select
-                value={announcementForm.type}
-                label="Type"
-                onChange={(e: SelectChangeEvent) => 
-                  setAnnouncementForm(prev => ({ ...prev, type: e.target.value as 'important' | 'general' }))
-                }
-              >
-                <MenuItem value="general">General</MenuItem>
-                <MenuItem value="important">Important</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl fullWidth>
-              <InputLabel>Facility</InputLabel>
-              <Select
-                value={announcementForm.facility}
-                label="Facility"
-                onChange={(e) => setAnnouncementForm(prev => ({ ...prev, facility: e.target.value }))}
-              >
-                {messes.map(mess => (
-                  <MenuItem key={mess.id} value={mess.id}>{mess.name}</MenuItem>
-                ))}
-                {canteens.map(canteen => (
-                  <MenuItem key={canteen.id} value={canteen.id}>{canteen.name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0' }}>
-          <Button onClick={() => setShowAnnouncementDialog(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleAnnouncementSubmit}
-            disabled={!announcementForm.title || !announcementForm.content || !announcementForm.facility}
-          >
-            {selectedAnnouncement ? 'Update' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Dialog
         open={showResponseDialog}

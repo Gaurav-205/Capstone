@@ -1,0 +1,121 @@
+// Empty export to make this file a proper module
+export {};
+
+import axios from 'axios';
+import { API_URL } from '../config';
+
+// Define interface for statistics
+interface SupportStatistics {
+  total: number;
+  open: number;
+  inProgress: number;
+  resolved: number;
+  closed: number;
+}
+
+/**
+ * Get support statistics
+ * @returns Promise with support statistics
+ */
+export const getStatistics = async (): Promise<{ data: SupportStatistics }> => {
+  try {
+    const response = await axios.get(`${API_URL}/support/statistics`);
+    return {
+      data: {
+        total: response.data?.data?.total || 0,
+        open: response.data?.data?.open || 0,
+        inProgress: response.data?.data?.inProgress || 0,
+        resolved: response.data?.data?.resolved || 0,
+        closed: response.data?.data?.closed || 0
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching support statistics:', error);
+    // Return default values if API call fails
+    return {
+      data: {
+        total: 0,
+        open: 0,
+        inProgress: 0,
+        resolved: 0,
+        closed: 0
+      }
+    };
+  }
+};
+
+/**
+ * Get all support tickets for the user
+ * @returns Promise with support tickets
+ */
+export const getUserTickets = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/support`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user support tickets:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create a new support ticket
+ * @param ticketData Ticket data to create
+ * @returns Promise with created ticket
+ */
+export const createTicket = async (ticketData: any) => {
+  try {
+    const response = await axios.post(`${API_URL}/support`, ticketData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating support ticket:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update an existing support ticket
+ * @param ticketId ID of the ticket to update
+ * @param ticketData Updated ticket data
+ * @returns Promise with updated ticket
+ */
+export const updateTicket = async (ticketId: string, ticketData: any) => {
+  try {
+    const response = await axios.put(`${API_URL}/support/${ticketId}`, ticketData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating support ticket:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a support ticket
+ * @param ticketId ID of the ticket to delete
+ * @returns Promise with deletion result
+ */
+export const deleteTicket = async (ticketId: string) => {
+  try {
+    const response = await axios.delete(`${API_URL}/support/${ticketId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting support ticket:', error);
+    throw error;
+  }
+};
+
+/**
+ * Mark a ticket as resolved
+ * @param ticketId ID of the ticket to resolve
+ * @param resolutionData Resolution data
+ * @returns Promise with resolved ticket
+ */
+export const resolveTicket = async (ticketId: string, resolutionData: any) => {
+  try {
+    const response = await axios.post(`${API_URL}/support/${ticketId}/resolve`, resolutionData);
+    return response.data;
+  } catch (error) {
+    console.error('Error resolving support ticket:', error);
+    throw error;
+  }
+};

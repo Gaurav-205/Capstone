@@ -15,7 +15,6 @@ export interface Feedback {
   }>;
   status: 'pending' | 'in_progress' | 'resolved' | 'closed';
   referenceNumber: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
   assignedTo?: string;
   expectedResolutionDate?: Date;
   resolution?: {
@@ -37,7 +36,6 @@ export interface CreateFeedbackData {
   title: string;
   description: string;
   isAnonymous: boolean;
-  priority: Feedback['priority'];
   attachments: Array<{
     file: File;
     filename: string;

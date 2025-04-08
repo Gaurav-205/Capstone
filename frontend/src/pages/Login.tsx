@@ -1,7 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -11,173 +8,163 @@ import {
   Alert,
   Stack,
   Divider,
-  Paper,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
-import { Google as GoogleIcon } from '@mui/icons-material';
-import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
-import authService, { LoginData } from '../services/auth.service';
-import { useAuth } from '../contexts/AuthContext';
+import { Google as GoogleIcon, Visibility, VisibilityOff } from '@mui/icons-material';
+import { Link as RouterLink } from 'react-router-dom';
+import { styled, keyframes } from '@mui/material/styles';
 
-const schema = yup.object().shape({
-  email: yup.string().email('Invalid email').required('Email is required'),
-  password: yup.string().required('Password is required')
-});
+// Shake animation for error feedback
+const shakeAnimation = keyframes`
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+`;
 
-const Login: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [error, setError] = useState<string>('');
+// Styled password field
+const AnimatedTextField = styled(TextField)(({ theme, error }) => ({
+  animation: error ? `${shakeAnimation} 0.5s` : 'none',
+}));
+
+const Login = () => {
+  const [error, setError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const { login, isAuthenticated } = useAuth();
   
-  const {
-    register,
-    handleSubmit,
-    formState: { errors }
-  } = useForm<LoginData>({
-    resolver: yupResolver(schema)
-  });
-
-  // Clean up URL and check auth state on mount
+  // Refs for form inputs
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  
+  // Clear redirects on mount
   useEffect(() => {
-    // Clear any stale auth data
-    if (location.search.includes('error')) {
-      const params = new URLSearchParams(location.search);
-      const errorMsg = params.get('error');
-      setError(decodeURIComponent(errorMsg || 'Authentication failed'));
-      // Clean URL
+    if (window.location.search) {
       window.history.replaceState({}, document.title, '/login');
     }
-    
-    // If user is already authenticated, redirect to appropriate page
-    if (isAuthenticated) {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        const redirectPath = user.role === 'admin' ? '/admin/dashboard' : '/dashboard';
-        navigate(redirectPath, { replace: true });
-      }
-    }
-  }, [location, navigate, isAuthenticated]);
-
-  const onSubmit = async (data: LoginData) => {
-    setIsLoading(true);
-    setError('');
-    
-    // Clear any redirect parameter from URL to prevent looping
-    if (window.location.search.includes('redirect')) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-    
-    try {
-      console.log('Starting login process...');
-      console.log('API URL:', process.env.REACT_APP_API_URL);
-      console.log('Login data:', { email: data.email, passwordLength: data.password?.length });
-      
-      // Call the login function from auth context
-      await login(data.email, data.password);
-      
-      // Only proceed with navigation if login was successful
-      console.log('Login successful, checking user role...');
-      
-      // Check localStorage for user role after login
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        console.log('User role:', user.role);
-        if (user.role === 'admin') {
-          console.log('Navigating to admin dashboard...');
-          navigate('/admin/dashboard');
-        } else {
-          console.log('Navigating to user dashboard...');
-          navigate('/dashboard');
-        }
-      } else {
-        console.log('No user data found in localStorage');
-        setError('Login successful but user data not found');
-      }
-    } catch (err: any) {
-      console.error('Login error details:', {
-        error: err,
-        response: err.response,
-        message: err.message,
-        status: err.response?.status
-      });
-
-      let errorMessage = '';
-      
-      // Check if the error has a response with data from the auth service
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.message?.includes('timeout') || err.message?.includes('Failed to connect')) {
-        errorMessage = 'Unable to reach the server. The server might be starting up, please wait a moment and try again.';
-        // Increment retry count for timeout errors
-        setRetryCount(prev => prev + 1);
-      } else if (err.response?.status === 401) {
-        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
-      } else if (err.response?.status === 404) {
-        errorMessage = 'Login service is currently unavailable. Please try again later.';
-      } else if (err.response?.data?.errors?.auth) {
-        errorMessage = err.response.data.errors.auth;
-      } else if (err.response?.data?.errors?.server) {
-        errorMessage = err.response.data.errors.server;
-      } else {
-        errorMessage = err.message || 'An error occurred during login';
-      }
-
-      // Add retry suggestion if we've had multiple timeouts
-      if (retryCount >= 2) {
-        errorMessage += ' The server might be taking longer than usual to start. Please wait a minute before trying again.';
-      }
-
-      setError(errorMessage);
-      
-      // Show error in a more visible way
-      const errorElement = document.createElement('div');
-      errorElement.style.position = 'fixed';
-      errorElement.style.top = '20px';
-      errorElement.style.left = '50%';
-      errorElement.style.transform = 'translateX(-50%)';
-      errorElement.style.backgroundColor = '#f44336';
-      errorElement.style.color = 'white';
-      errorElement.style.padding = '15px 25px';
-      errorElement.style.borderRadius = '4px';
-      errorElement.style.zIndex = '9999';
-      errorElement.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
-      errorElement.textContent = errorMessage;
-      document.body.appendChild(errorElement);
-
-      // Remove error message after 5 seconds
-      setTimeout(() => {
-        document.body.removeChild(errorElement);
-      }, 5000);
-      
-      // Prevent form submission and navigation
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
+  }, []);
+  
+  // Toggle password visibility
+  const handleTogglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
-
+  
+  // Handle Google login
   const handleGoogleLogin = () => {
     try {
-      // Clear any existing auth data before starting new auth flow
-      localStorage.removeItem('googleAuthComplete');
-      localStorage.removeItem('returnUrl');
-      sessionStorage.removeItem('authRedirectCount');
-      
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      const googleAuthUrl = `${apiUrl}/auth/google`;
-      
-      // Redirect to Google auth
-      window.location.href = googleAuthUrl;
+      window.location.href = `${apiUrl}/auth/google`;
     } catch (error) {
-      console.error('Google login error:', error);
-      setError('Failed to initiate Google login. Please try again.');
+      setError('Failed to initiate Google login');
     }
   };
-
+  
+  // Show error with animation
+  const shakeElement = (elementId: string) => {
+    const element = document.getElementById(elementId);
+    if (element) {
+      element.style.animation = 'none';
+      setTimeout(() => {
+        element.style.animation = `${shakeAnimation} 0.5s`;
+      }, 10);
+    }
+  };
+  
+  // Handle login form submission
+  const handleLogin = (e: React.MouseEvent) => {
+    // Prevent any default actions and propagation
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Don't continue if already loading
+    if (isLoading) return;
+    
+    // Get input values
+    const email = emailRef.current?.value || '';
+    const password = passwordRef.current?.value || '';
+    
+    // Clear previous errors
+    setError('');
+    setEmailError('');
+    setPasswordError('');
+    
+    // Validation
+    if (!email) {
+      setEmailError('Email is required');
+      shakeElement('email-container');
+      return;
+    }
+    
+    if (!password) {
+      setPasswordError('Password is required');
+      shakeElement('password-container');
+      return;
+    }
+    
+    // Set loading state
+    setIsLoading(true);
+    
+    // Use the browser's fetch API directly
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+    
+    console.log('Attempting direct fetch login with:', email);
+    
+    // Make login request using fetch instead of axios
+    fetch(`${apiUrl}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({ email, password })
+    })
+    .then(response => {
+      // Check if response is not ok
+      if (!response.ok) {
+        return response.json().then(data => {
+          throw { status: response.status, data };
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('Login success:', data);
+      
+      // Store credentials
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      // Navigate to dashboard directly through window location
+      const user = data.user;
+      window.location.href = user.role === 'admin' ? '/admin/dashboard' : '/dashboard';
+    })
+    .catch(err => {
+      console.error('Login error:', err);
+      setIsLoading(false);
+      
+      // Handle specific error status codes
+      if (err.status === 401) {
+        const errorData = err.data;
+        
+        if (errorData.errors?.email || errorData.message?.includes('No account')) {
+          setEmailError(errorData.errors?.email || 'No account found with this email');
+          shakeElement('email-container');
+        } 
+        else if (errorData.errors?.password || errorData.message?.includes('password')) {
+          setPasswordError(errorData.errors?.password || 'Incorrect password');
+          shakeElement('password-container');
+        } 
+        else {
+          setError(errorData.message || 'Authentication failed');
+        }
+      } 
+      else {
+        setError('Login failed. Please try again later.');
+      }
+    });
+  };
+  
   return (
     <Box
       sx={{
@@ -186,7 +173,6 @@ const Login: React.FC = () => {
         bgcolor: '#fff',
       }}
     >
-      {/* Left side - Image */}
       <Box
         sx={{
           width: '50%',
@@ -194,14 +180,9 @@ const Login: React.FC = () => {
           backgroundImage: 'url(/images/nature-leaves.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          // borderTopRightRadius: '2rem',
-          // borderBottomRightRadius: '2rem',
-          // borderTopLeftRadius: '2rem',
-          // borderBottomLeftRadius: '2rem',
         }}
       />
 
-      {/* Right side - Form */}
       <Box
         sx={{
           width: '50%',
@@ -292,47 +273,79 @@ const Login: React.FC = () => {
           </Typography>
 
           {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 2, 
+                animation: 'fadeIn 0.3s',
+                '@keyframes fadeIn': {
+                  '0%': { opacity: 0, transform: 'translateY(-10px)' },
+                  '100%': { opacity: 1, transform: 'translateY(0)' }
+                },
+                display: 'flex',
+                alignItems: 'center',
+                borderLeft: '4px solid #f44336',
+                bgcolor: 'rgba(244, 67, 54, 0.1)',
+              }}
+              action={
+                <IconButton
+                  aria-label="close"
+                  color="inherit"
+                  size="small"
+                  onClick={() => setError('')}
+                >
+                  <Box component="span" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>×</Box>
+                </IconButton>
+              }
+            >
               {error}
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)}>
+          {/* Replace form with div */}
+          <Box component="div" sx={{ mt: 1 }}>
             <Stack spacing={2.5}>
-              <TextField
-                fullWidth
-                label="Email"
-                {...register('email')}
-                error={!!errors.email}
-                helperText={errors.email?.message}
-                disabled={isLoading}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: '#F8F9FA',
-                    '&.Mui-focused': {
-                      bgcolor: '#fff',
-                    }
-                  }
-                }}
-              />
+              <Box id="email-container">
+                <TextField
+                  fullWidth
+                  id="email"
+                  label="Email Address"
+                  inputRef={emailRef}
+                  autoComplete="email"
+                  error={!!emailError}
+                  helperText={emailError}
+                  disabled={isLoading}
+                  onChange={() => setEmailError('')}
+                />
+              </Box>
               
-              <TextField
-                fullWidth
-                type="password"
-                label="Password"
-                {...register('password')}
-                error={!!errors.password}
-                helperText={errors.password?.message}
-                disabled={isLoading}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: '#F8F9FA',
-                    '&.Mui-focused': {
-                      bgcolor: '#fff',
-                    }
-                  }
-                }}
-              />
+              <Box id="password-container">
+                <AnimatedTextField
+                  fullWidth
+                  id="password"
+                  label="Password"
+                  type={showPassword ? "text" : "password"}
+                  inputRef={passwordRef}
+                  autoComplete="current-password"
+                  error={!!passwordError}
+                  helperText={passwordError}
+                  disabled={isLoading}
+                  onChange={() => setPasswordError('')}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={handleTogglePasswordVisibility}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
+                />
+              </Box>
 
               <Box sx={{ textAlign: 'right' }}>
                 <Link
@@ -350,7 +363,8 @@ const Login: React.FC = () => {
               </Box>
 
               <Button
-                type="submit"
+                type="button" 
+                onClick={handleLogin}
                 variant="contained"
                 disabled={isLoading}
                 sx={{
@@ -358,13 +372,35 @@ const Login: React.FC = () => {
                   textTransform: 'none',
                   fontWeight: 600,
                   boxShadow: '0 4px 12px rgba(25, 118, 210, 0.25)',
+                  position: 'relative',
                   '&:hover': {
                     transform: 'translateY(-1px)',
                     boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
                   },
                 }}
               >
-                {isLoading ? 'Logging in...' : 'Login'}
+                {isLoading ? (
+                  <>
+                    <Box 
+                      component="span" 
+                      sx={{ 
+                        display: 'inline-block',
+                        width: 16,
+                        height: 16,
+                        borderRadius: '50%',
+                        border: '2px solid currentColor',
+                        borderTopColor: 'transparent',
+                        mr: 1,
+                        animation: 'spin 1s linear infinite',
+                        '@keyframes spin': {
+                          '0%': { transform: 'rotate(0deg)' },
+                          '100%': { transform: 'rotate(360deg)' }
+                        }
+                      }} 
+                    />
+                    Logging in...
+                  </>
+                ) : 'Login'}
               </Button>
 
               <Box sx={{ position: 'relative', my: 1 }}>
@@ -395,7 +431,7 @@ const Login: React.FC = () => {
                 Continue with Google
               </Button>
             </Stack>
-          </form>
+          </Box>
 
           <Typography variant="body2" sx={{ mt: 4, textAlign: 'center', color: 'text.secondary' }}>
             Don't have an account?{' '}

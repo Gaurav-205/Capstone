@@ -1,9 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, ReactNode } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Box, CssBaseline, useTheme, useMediaQuery } from '@mui/material';
 import Sidebar from '../components/Sidebar';
 
-const MainLayout: React.FC = () => {
+interface MainLayoutProps {
+  children?: ReactNode;
+}
+
+const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -59,7 +63,7 @@ const MainLayout: React.FC = () => {
           }
         }}
       >
-        <Outlet />
+        {children || <Outlet />}
       </Box>
     </Box>
   );

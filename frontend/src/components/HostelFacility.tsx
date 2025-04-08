@@ -377,7 +377,7 @@ const HostelFacility = () => {
                     },
                   }}
                 >
-                  Learn More
+                  View Details
                 </Button>
               </Paper>
             </Grid>
@@ -409,13 +409,6 @@ const HostelFacility = () => {
                     General Information
                   </Typography>
                   <List>
-                    <ListItem>
-                      <ListItemIcon><Bed /></ListItemIcon>
-                      <ListItemText 
-                        primary="Room Availability" 
-                        secondary={`${selectedHostel.availableRooms} out of ${selectedHostel.totalRooms} rooms available`}
-                      />
-                    </ListItem>
                     <ListItem>
                       <ListItemIcon><LocationOn /></ListItemIcon>
                       <ListItemText 

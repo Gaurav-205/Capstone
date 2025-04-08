@@ -15,14 +15,30 @@ import {
   Box, 
   Typography, 
   SelectChangeEvent,
-  IconButton,
   ImageList,
   ImageListItem,
   Container,
   Paper,
-  CircularProgress
+  CircularProgress,
+  Grid,
+  Divider,
+  Chip,
+  InputAdornment,
+  useTheme,
+  Stack,
+  IconButton
 } from '@mui/material';
-import { CloudUpload as CloudUploadIcon, Close as CloseIcon, Send as SendIcon } from '@mui/icons-material';
+import { 
+  CloudUpload as CloudUploadIcon, 
+  Close as CloseIcon, 
+  Send as SendIcon,
+  Feedback as FeedbackIcon,
+  Category as CategoryIcon,
+  Title as TitleIcon,
+  Description as DescriptionIcon,
+  VisibilityOff as VisibilityOffIcon,
+  AttachFile as AttachFileIcon
+} from '@mui/icons-material';
 
 interface AttachmentWithPreview extends File {
   preview?: string;
@@ -34,6 +50,7 @@ interface FeedbackFormProps {
 }
 
 const FeedbackForm: React.FC<FeedbackFormProps> = ({ feedbackToEdit, onSubmitSuccess }) => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const [formData, setFormData] = useState<CreateFeedbackData>({
     type: 'feedback',
@@ -41,7 +58,6 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ feedbackToEdit, onSubmitSuc
     title: '',
     description: '',
     isAnonymous: false,
-    priority: 'medium',
     attachments: []
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,6 +70,11 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ feedbackToEdit, onSubmitSuc
     message: '',
     severity: 'success'
   });
+  const [errors, setErrors] = useState<{
+    title?: string;
+    description?: string;
+    general?: string;
+  }>({});
 
   // Initialize form with feedback data when editing
   useEffect(() => {
@@ -64,7 +85,6 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ feedbackToEdit, onSubmitSuc
         title: feedbackToEdit.title,
         description: feedbackToEdit.description,
         isAnonymous: feedbackToEdit.isAnonymous,
-        priority: feedbackToEdit.priority,
         attachments: [] // Reset attachments when editing
       });
     }
@@ -83,6 +103,12 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ feedbackToEdit, onSubmitSuc
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
     const { name, value } = e.target;
+    
+    // Clear the error for this field when it's changed
+    if (name in errors) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -131,25 +157,28 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ feedbackToEdit, onSubmitSuc
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateForm = () => {
+    const newErrors: typeof errors = {};
     
-    // Validate required fields
     if (!formData.title.trim()) {
-      setSnackbar({
-        open: true,
-        message: 'Please enter a title',
-        severity: 'error'
-      });
-      return;
+      newErrors.title = 'Please enter a title';
     }
 
     if (!formData.description.trim()) {
-      setSnackbar({
-        open: true,
-        message: 'Please enter a description',
-        severity: 'error'
-      });
+      newErrors.description = 'Please enter a description';
+    } else if (formData.description.trim().length < 10) {
+      newErrors.description = 'Description should be at least 10 characters';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!validateForm()) {
       return;
     }
 
@@ -180,7 +209,6 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ feedbackToEdit, onSubmitSuc
         title: '',
         description: '',
         isAnonymous: false,
-        priority: 'medium',
         attachments: []
       });
 
@@ -200,6 +228,8 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ feedbackToEdit, onSubmitSuc
         || error.message
         || `Failed to ${feedbackToEdit ? 'update' : 'submit'} feedback. Please try again.`;
       
+      setErrors({ general: errorMessage });
+      
       setSnackbar({
         open: true,
         message: errorMessage,
@@ -214,169 +244,362 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ feedbackToEdit, onSubmitSuc
     setSnackbar(prev => ({ ...prev, open: false }));
   };
 
+  // Get type color
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'feedback':
+        return theme.palette.info.main;
+      case 'complaint':
+        return theme.palette.error.main;
+      case 'suggestion':
+        return theme.palette.success.main;
+      default:
+        return theme.palette.primary.main;
+    }
+  };
+
+  // Get file icon and color
+  const getFileTypeInfo = (mimeType: string) => {
+    if (mimeType.startsWith('image/')) {
+      return {
+        icon: '🖼️',
+        color: theme.palette.success.light
+      };
+    } else if (mimeType.includes('pdf')) {
+      return {
+        icon: '📄',
+        color: theme.palette.error.light
+      };
+    } else if (mimeType.includes('doc')) {
+      return {
+        icon: '📝',
+        color: theme.palette.info.light
+      };
+    } else {
+      return {
+        icon: '📎',
+        color: theme.palette.warning.light
+      };
+    }
+  };
+
   return (
     <Container maxWidth="md">
-      <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
-        <Typography variant="h4" component="h2" gutterBottom align="center">
+      <Paper 
+        elevation={4} 
+        sx={{ 
+          p: { xs: 2, sm: 4 }, 
+          mt: 4, 
+          mb: 4,
+          borderRadius: 2,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+        }}
+      >
+        <Typography 
+          variant="h4" 
+          component="h2" 
+          gutterBottom 
+          align="center"
+          sx={{ 
+            mb: 3, 
+            position: 'relative',
+            '&:after': {
+              content: '""',
+              position: 'absolute',
+              bottom: -8,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '60px',
+              height: '4px',
+              backgroundColor: 'primary.main',
+              borderRadius: '2px'
+            }
+          }}
+        >
           {feedbackToEdit ? 'Edit Feedback' : 'Submit Feedback'}
         </Typography>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Type</InputLabel>
-            <Select
-              name="type"
-              value={formData.type}
-              onChange={handleChange}
-              label="Type"
-              required
-            >
-              <MenuItem value="feedback">Feedback</MenuItem>
-              <MenuItem value="complaint">Complaint</MenuItem>
-              <MenuItem value="suggestion">Suggestion</MenuItem>
-            </Select>
-          </FormControl>
 
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Category</InputLabel>
-            <Select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              label="Category"
-              required
-            >
-              <MenuItem value="academic">Academic</MenuItem>
-              <MenuItem value="facilities">Facilities</MenuItem>
-              <MenuItem value="harassment">Harassment</MenuItem>
-              <MenuItem value="other">Other</MenuItem>
-            </Select>
-          </FormControl>
+        {errors.general && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {errors.general}
+          </Alert>
+        )}
 
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Priority</InputLabel>
-            <Select
-              name="priority"
-              value={formData.priority}
-              onChange={handleChange}
-              label="Priority"
-              required
-            >
-              <MenuItem value="low">Low</MenuItem>
-              <MenuItem value="medium">Medium</MenuItem>
-              <MenuItem value="high">High</MenuItem>
-              <MenuItem value="urgent">Urgent</MenuItem>
-            </Select>
-          </FormControl>
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth variant="outlined">
+                <InputLabel>Type</InputLabel>
+                <Select
+                  name="type"
+                  value={formData.type}
+                  onChange={handleChange}
+                  label="Type"
+                  required
+                  startAdornment={
+                    <InputAdornment position="start">
+                      <FeedbackIcon 
+                        sx={{ 
+                          color: getTypeColor(formData.type),
+                          mr: 1 
+                        }} 
+                      />
+                    </InputAdornment>
+                  }
+                >
+                  <MenuItem value="feedback">Feedback</MenuItem>
+                  <MenuItem value="complaint">Complaint</MenuItem>
+                  <MenuItem value="suggestion">Suggestion</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
 
-          <TextField
-            fullWidth
-            name="title"
-            label="Title"
-            value={formData.title}
-            onChange={handleChange}
-            required
-            sx={{ mb: 2 }}
-          />
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth variant="outlined">
+                <InputLabel>Category</InputLabel>
+                <Select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  label="Category"
+                  required
+                  startAdornment={
+                    <InputAdornment position="start">
+                      <CategoryIcon sx={{ color: 'primary.main', mr: 1 }} />
+                    </InputAdornment>
+                  }
+                >
+                  <MenuItem value="academic">Academic</MenuItem>
+                  <MenuItem value="facilities">Facilities</MenuItem>
+                  <MenuItem value="harassment">Harassment</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
 
-          <TextField
-            fullWidth
-            name="description"
-            label="Description"
-            value={formData.description}
-            onChange={handleChange}
-            multiline
-            rows={4}
-            required
-            sx={{ mb: 2 }}
-          />
-
-          <FormControlLabel
-            control={
-              <Switch
-                checked={formData.isAnonymous}
-                onChange={handleSwitchChange}
-                name="isAnonymous"
-              />
-            }
-            label="Submit Anonymously"
-            sx={{ mb: 2 }}
-          />
-
-          <Box sx={{ mb: 2 }}>
-            <input
-              accept="image/*,.pdf,.doc,.docx"
-              style={{ display: 'none' }}
-              id="attachment-button"
-              type="file"
-              multiple
-              onChange={handleFileChange}
-            />
-            <label htmlFor="attachment-button">
-              <Button
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                name="title"
+                label="Title"
+                value={formData.title}
+                onChange={handleChange}
+                required
+                error={!!errors.title}
+                helperText={errors.title}
                 variant="outlined"
-                component="span"
-                startIcon={<CloudUploadIcon />}
-              >
-                Attach Files
-              </Button>
-            </label>
-          </Box>
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <TitleIcon sx={{ color: 'primary.main' }} />
+                    </InputAdornment>
+                  ),
+                }}
+                placeholder="Brief summary of your feedback"
+              />
+            </Grid>
 
-          {formData.attachments.length > 0 && (
-            <ImageList sx={{ width: '100%', height: 'auto', mb: 2 }} cols={3} rowHeight={164}>
-              {formData.attachments.map((attachment, index) => (
-                <ImageListItem key={index}>
-                  {attachment.file.type.startsWith('image/') ? (
-                    <img
-                      src={(attachment.file as AttachmentWithPreview).preview}
-                      alt={attachment.filename}
-                      loading="lazy"
-                      style={{ height: '100%', objectFit: 'cover' }}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                name="description"
+                label="Description"
+                value={formData.description}
+                onChange={handleChange}
+                multiline
+                rows={4}
+                required
+                error={!!errors.description}
+                helperText={errors.description}
+                variant="outlined"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <DescriptionIcon sx={{ color: 'primary.main', mt: 1 }} />
+                    </InputAdornment>
+                  ),
+                }}
+                placeholder="Please provide detailed information about your feedback"
+              />
+            </Grid>
+
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }}>
+                <Chip label="Options" />
+              </Divider>
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.isAnonymous}
+                    onChange={handleSwitchChange}
+                    name="isAnonymous"
+                    color="primary"
+                  />
+                }
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <VisibilityOffIcon 
+                      fontSize="small" 
+                      sx={{ color: formData.isAnonymous ? 'primary.main' : 'text.secondary' }} 
                     />
-                  ) : (
-                    <Box
-                      sx={{
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        bgcolor: 'grey.100',
-                      }}
-                    >
-                      <Typography variant="body2">{attachment.filename}</Typography>
-                    </Box>
-                  )}
-                  <IconButton
-                    sx={{
-                      position: 'absolute',
-                      right: 8,
-                      top: 8,
-                      bgcolor: 'rgba(255, 255, 255, 0.7)',
-                    }}
-                    onClick={() => handleRemoveAttachment(index)}
-                  >
-                    <CloseIcon />
-                  </IconButton>
-                </ImageListItem>
-              ))}
-            </ImageList>
-          )}
+                    <Typography>Submit Anonymously</Typography>
+                  </Stack>
+                }
+              />
+            </Grid>
 
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            disabled={isSubmitting}
-            startIcon={isSubmitting ? <CircularProgress size={20} /> : <SendIcon />}
-            fullWidth
-          >
-            {isSubmitting 
-              ? 'Submitting...' 
-              : feedbackToEdit 
-                ? 'Update Feedback' 
-                : 'Submit Feedback'
-            }
-          </Button>
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <input
+                  accept="image/*,.pdf,.doc,.docx"
+                  style={{ display: 'none' }}
+                  id="attachment-button"
+                  type="file"
+                  multiple
+                  onChange={handleFileChange}
+                />
+                <label htmlFor="attachment-button">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    startIcon={<CloudUploadIcon />}
+                    sx={{ 
+                      borderRadius: '20px',
+                      px: 2
+                    }}
+                  >
+                    Attach Files
+                  </Button>
+                </label>
+              </Box>
+            </Grid>
+
+            {formData.attachments.length > 0 && (
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <AttachFileIcon fontSize="small" sx={{ mr: 1 }} />
+                  Attachments ({formData.attachments.length})
+                </Typography>
+                <Paper 
+                  variant="outlined" 
+                  sx={{ 
+                    p: 2, 
+                    borderRadius: 2,
+                    bgcolor: 'background.default' 
+                  }}
+                >
+                  <Grid container spacing={2}>
+                    {formData.attachments.map((attachment, index) => {
+                      const fileInfo = getFileTypeInfo(attachment.file.type);
+                      return (
+                        <Grid item xs={6} sm={4} md={3} key={index}>
+                          <Paper
+                            elevation={1}
+                            sx={{
+                              position: 'relative',
+                              height: 100,
+                              borderRadius: 2,
+                              overflow: 'hidden',
+                              transition: 'all 0.2s',
+                              '&:hover': {
+                                boxShadow: 3,
+                              }
+                            }}
+                          >
+                            {attachment.file.type.startsWith('image/') ? (
+                              <Box
+                                component="img"
+                                src={(attachment.file as AttachmentWithPreview).preview}
+                                alt={attachment.filename}
+                                sx={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover'
+                                }}
+                              />
+                            ) : (
+                              <Box
+                                sx={{
+                                  height: '100%',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  bgcolor: fileInfo.color,
+                                  p: 1
+                                }}
+                              >
+                                <Typography variant="h5" sx={{ mb: 1 }}>{fileInfo.icon}</Typography>
+                                <Typography 
+                                  variant="caption" 
+                                  sx={{ 
+                                    textAlign: 'center',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                  }}
+                                >
+                                  {attachment.filename}
+                                </Typography>
+                              </Box>
+                            )}
+                            <IconButton
+                              size="small"
+                              sx={{
+                                position: 'absolute',
+                                right: 4,
+                                top: 4,
+                                bgcolor: 'rgba(255, 255, 255, 0.8)',
+                                '&:hover': {
+                                  bgcolor: 'rgba(255, 255, 255, 0.95)',
+                                }
+                              }}
+                              onClick={() => handleRemoveAttachment(index)}
+                            >
+                              <CloseIcon fontSize="small" />
+                            </IconButton>
+                          </Paper>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                </Paper>
+              </Grid>
+            )}
+
+            <Grid item xs={12}>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={isSubmitting}
+                startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
+                fullWidth
+                size="large"
+                sx={{ 
+                  mt: 2, 
+                  py: 1.5,
+                  borderRadius: '8px',
+                  boxShadow: 2,
+                  '&:hover': {
+                    boxShadow: 4
+                  }
+                }}
+              >
+                {isSubmitting 
+                  ? 'Submitting...' 
+                  : feedbackToEdit 
+                    ? 'Update Feedback' 
+                    : 'Submit Feedback'
+                }
+              </Button>
+            </Grid>
+          </Grid>
         </form>
 
         <Snackbar
@@ -388,6 +611,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({ feedbackToEdit, onSubmitSuc
           <Alert
             onClose={handleCloseSnackbar}
             severity={snackbar.severity}
+            variant="filled"
             sx={{ width: '100%' }}
           >
             {snackbar.message}

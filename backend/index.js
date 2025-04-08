@@ -35,37 +35,11 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 app.use(cors({
-  origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+  origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
-
-// Serve static files from the uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Initialize passport
-app.use(passport.initialize());
-
-// Import routes
-const authRoutes = require('./routes/auth.routes');
-const itemRoutes = require('./routes/items.routes');
-const feedbackRoutes = require('./routes/feedbackRoutes');
-const messRoutes = require('./routes/messRoutes');
-const hostelRoutes = require('./routes/hostelRoutes');
-const facilityRoutes = require('./routes/facilityRoutes');
-const lostFoundRoutes = require('./routes/lostFoundRoutes');
-const profileRoutes = require('./routes/profileRoutes');
-const eventRoutes = require('./routes/eventRoutes');
-
-// Use routes
-app.use('/api/auth', authRoutes);
-app.use('/api/items', itemRoutes);
-app.use('/api/feedback', feedbackRoutes);
-app.use('/api/mess', messRoutes);
-app.use('/api/hostel', hostelRoutes);
-app.use('/api/facilities', facilityRoutes);
-app.use('/api/lost-found', lostFoundRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/events', eventRoutes);
 
 // Session configuration
 app.use(session({
@@ -78,6 +52,41 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
+
+// Initialize passport and session
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Import routes
+const authRoutes = require('./routes/auth.routes');
+const itemRoutes = require('./routes/items.routes');
+const feedbackRoutes = require('./routes/feedbackRoutes');
+const messRoutes = require('./routes/messRoutes');
+const hostelRoutes = require('./routes/hostelRoutes');
+const facilityRoutes = require('./routes/facilityRoutes');
+const lostFoundRoutes = require('./routes/lostFoundRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+const eventRoutes = require('./routes/eventRoutes');
+const locationRoutes = require('./routes/location.routes');
+const supportRoutes = require('./routes/supportRoutes');
+const newsRoutes = require('./routes/newsRoutes');
+
+// Use routes
+app.use('/api/auth', authRoutes);
+app.use('/api/items', itemRoutes);
+app.use('/api/feedback', feedbackRoutes);
+app.use('/api/mess', messRoutes);
+app.use('/api/hostels', hostelRoutes);
+app.use('/api/facilities', facilityRoutes);
+app.use('/api/lost-found', lostFoundRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/locations', locationRoutes);
+app.use('/api/support', supportRoutes);
+app.use('/api/news', newsRoutes);
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
@@ -136,7 +145,7 @@ const server = app.listen(PORT, () => {
   console.log('- JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'Not set');
   console.log('- GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'Set' : 'Not set');
   console.log('- GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'Not set');
-  console.log('- FRONTEND_URL:', process.env.FRONTEND_URL || 'http://localhost:3000');
+  console.log('- FRONTEND_URL:', process.env.FRONTEND_URL_DEV);
 });
 
 // Graceful shutdown

@@ -6,7 +6,6 @@ export interface User {
   role: 'admin' | 'user';
   hasSetPassword: boolean;
   avatar?: string;
-  avatarTimestamp?: number; // Timestamp for cache busting avatar images
   dateOfBirth?: string;
   gender?: string;
   phoneNumber?: string;
@@ -16,4 +15,4 @@ export interface User {
   studentId?: string;
 }
 
-export type UserRole = User['role'];
+export type UserRole = User['role']; 

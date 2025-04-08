@@ -6,13 +6,22 @@ const crypto = require('crypto');
 
 // Serialize user for the session
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+  try {
+    // Only store the user ID in the session
+    done(null, user._id);
+  } catch (err) {
+    done(err, null);
+  }
 });
 
 // Deserialize user from the session
 passport.deserializeUser(async (id, done) => {
   try {
-    const user = await User.findById(id);
+    // Find user by ID, excluding sensitive fields
+    const user = await User.findById(id).select('-password -resetPasswordToken -resetPasswordExpire');
+    if (!user) {
+      return done(new Error('User not found'), null);
+    }
     done(null, user);
   } catch (error) {
     done(error, null);
@@ -48,15 +57,17 @@ passport.use(
           // If user exists but doesn't have googleId (registered with email)
           if (!user.googleId) {
             user.googleId = profile.id;
+            await user.save();
           }
           
           // Always set hasSetPassword to true for Google users to bypass password setup
-          user.hasSetPassword = true;
-          await user.save();
+          if (!user.hasSetPassword) {
+            user.hasSetPassword = true;
+            await user.save();
+          }
           
           console.log('Existing user found and updated:', user);
-          // Don't require password setup for Google login
-          return done(null, { ...user.toObject(), needsPassword: false });
+          return done(null, user);
         }
 
         // If not, create new user
@@ -64,15 +75,13 @@ passport.use(
           googleId: profile.id,
           name: profile.displayName,
           email: profile.emails?.[0]?.value,
-          // Auto-set hasSetPassword to true for Google users to bypass password setup
           hasSetPassword: true,
-          // Generated secure random password for the user
-          password: crypto.randomBytes(16).toString('hex')
+          password: crypto.randomBytes(16).toString('hex'),
+          isEmailVerified: true // Google OAuth users are automatically verified
         });
 
         console.log('New user created:', user);
-        // Don't require password setup for Google users
-        done(null, { ...user.toObject(), needsPassword: false });
+        done(null, user);
       } catch (error) {
         console.error('Google strategy error:', error);
         done(error, null);

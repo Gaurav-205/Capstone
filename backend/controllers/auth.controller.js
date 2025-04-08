@@ -130,23 +130,49 @@ exports.signup = async (req, res) => {
 // Login user
 exports.login = async (req, res) => {
   try {
+    console.log('Server: Starting login process');
     const { email, password } = req.body;
 
-    // Validate required fields
-    if (!email || !password) {
+    // Validate required fields with more detailed errors
+    if (!email && !password) {
+      console.log('Server: Missing email and password');
       return res.status(400).json({
         success: false,
         message: 'Please provide email and password',
         errors: {
-          email: !email ? 'Email is required' : null,
-          password: !password ? 'Password is required' : null
+          email: 'Email is required',
+          password: 'Password is required'
+        }
+      });
+    }
+    
+    if (!email) {
+      console.log('Server: Missing email');
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email',
+        errors: {
+          email: 'Email is required'
+        }
+      });
+    }
+    
+    if (!password) {
+      console.log('Server: Missing password');
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide password',
+        errors: {
+          password: 'Password is required'
         }
       });
     }
 
-    // Check if user exists and include password for comparison
+    // Check if user exists
+    console.log('Server: Finding user by email:', email);
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
+      console.log('Server: No account found with email:', email);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials',
@@ -158,6 +184,7 @@ exports.login = async (req, res) => {
 
     // Check if user has set a password
     if (!user.hasSetPassword) {
+      console.log('Server: Password not set for user:', email);
       return res.status(401).json({
         success: false,
         message: 'Password not set',
@@ -167,9 +194,11 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check password using the model's method
+    // Check password
+    console.log('Server: Verifying password for user:', email);
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      console.log('Server: Incorrect password for user:', email);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials',
@@ -189,8 +218,9 @@ exports.login = async (req, res) => {
     const token = createToken(user._id);
 
     // Log successful login
-    console.log('Login successful for:', email);
+    console.log('Server: Login successful for:', email);
 
+    // Return success response with user data
     res.status(200).json({
       success: true,
       token,
@@ -204,11 +234,13 @@ exports.login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Server: Login error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error during login',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      errors: {
+        server: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      }
     });
   }
 };
@@ -269,14 +301,30 @@ exports.resetPassword = async (req, res) => {
 exports.getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
+    
+    // Make sure we always have a name, using email username as fallback
+    let userName = user.name;
+    if (!userName || userName.trim() === '') {
+      console.log('Name missing for user, using email as fallback');
+      if (user.email) {
+        // Extract username from email
+        userName = user.email.split('@')[0];
+        // Capitalize first letter and replace dots/underscores with spaces
+        userName = userName.charAt(0).toUpperCase() + userName.slice(1).replace(/[._]/g, ' ');
+      } else {
+        userName = 'User';
+      }
+    }
+
     res.json({
       success: true,
       user: {
         id: user._id,
-        name: user.name,
+        name: userName,
         email: user.email,
         hasSetPassword: user.hasSetPassword,
-        role: user.role || 'user'
+        role: user.role || 'user',
+        avatar: user.avatar
       }
     });
   } catch (error) {

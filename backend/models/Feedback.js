@@ -8,12 +8,12 @@ const feedbackSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['complaint', 'suggestion', 'feedback'],
+    enum: ['complaint', 'suggestion', 'feedback', 'dining'],
     required: true
   },
   category: {
     type: String,
-    enum: ['academic', 'facilities', 'harassment', 'other'],
+    enum: ['academic', 'facilities', 'harassment', 'other', 'mess', 'canteen'],
     required: true
   },
   title: {
@@ -90,6 +90,10 @@ const feedbackSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  metadata: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   }
 });
 

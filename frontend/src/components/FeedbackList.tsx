@@ -115,21 +115,6 @@ const FeedbackList: React.FC = () => {
     }
   };
 
-  const getPriorityColor = (priority: Feedback['priority']) => {
-    switch (priority) {
-      case 'urgent':
-        return 'error';
-      case 'high':
-        return 'error';
-      case 'medium':
-        return 'warning';
-      case 'low':
-        return 'success';
-      default:
-        return 'default';
-    }
-  };
-
   const handleRateResolution = async (id: string, rating: number) => {
     try {
       await feedbackService.rateResolution(id, { rating, comment: '' });
@@ -235,11 +220,6 @@ const FeedbackList: React.FC = () => {
                             label={(item.status || 'unknown').replace('_', ' ')} 
                             size="small" 
                             color={getStatusColor(item.status)}
-                          />
-                          <Chip 
-                            label={item.priority || 'low'} 
-                            size="small" 
-                            color={getPriorityColor(item.priority)}
                           />
                         </Box>
                         <Typography variant="body2" color="text.secondary" gutterBottom>

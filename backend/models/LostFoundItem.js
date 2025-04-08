@@ -17,8 +17,7 @@ const lostFoundItemSchema = new mongoose.Schema({
   },
   location: {
     type: String,
-    required: true,
-    enum: ['Academic Block', 'Library', 'Cafeteria', 'Sports Complex', 'Hostel', 'Parking Area', 'Other Areas']
+    required: true
   },
   date: {
     type: Date,
@@ -45,6 +44,11 @@ const lostFoundItemSchema = new mongoose.Schema({
     type: String,
     required: true,
     match: [/^[0-9]{10}$/, 'Please enter a valid 10-digit phone number']
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
   isResolved: {
     type: Boolean,

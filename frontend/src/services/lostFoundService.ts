@@ -81,7 +81,7 @@ axios.interceptors.response.use(
 );
 
 export interface LostFoundItem {
-  id: string;
+  _id: string;
   title: string;
   description: string;
   category: string;
@@ -186,12 +186,9 @@ const isItemExpired = (item: LostFoundItem): boolean => {
 
 export const lostFoundService = {
   // Helper function to check if current user owns an item
-  isItemOwner: (item: LostFoundItem): boolean => {
-    const currentUserId = getLoggedInUserId();
-    if (!currentUserId) {
-      return false;
-    }
-    return currentUserId === item.userId;
+  isItemOwner: (item: LostFoundItem) => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return item.userId === user._id;
   },
 
   // Get items with filters
@@ -249,7 +246,13 @@ export const lostFoundService = {
         throw new Error('Phone number must be 10 digits');
       }
 
-      const response = await axios.post(LOST_FOUND_API_URL, item);
+      // Format date to ISO string if it's not already
+      const formattedItem = {
+        ...item,
+        date: item.date ? new Date(item.date).toISOString() : new Date().toISOString()
+      };
+
+      const response = await axios.post(LOST_FOUND_API_URL, formattedItem);
       return response.data;
     } catch (error) {
       return handleApiError(error);
@@ -269,6 +272,9 @@ export const lostFoundService = {
   // Delete item
   deleteItem: async (id: string): Promise<ApiResponse<{ message: string }>> => {
     try {
+      if (!id) {
+        throw new Error('Item ID is required for deletion');
+      }
       const response = await axios.delete(`${LOST_FOUND_API_URL}/${id}`);
       return response.data;
     } catch (error) {
@@ -322,4 +328,4 @@ export const lostFoundService = {
   isItemVisible: (item: LostFoundItem): boolean => {
     return !lostFoundService.isItemExpired(item);
   }
-}; 
+};

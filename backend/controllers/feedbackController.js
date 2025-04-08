@@ -181,6 +181,69 @@ exports.submitResolution = async (req, res) => {
   }
 };
 
+// Create dining feedback
+exports.createDiningFeedback = async (req, res) => {
+  try {
+    const { 
+      facilityId, 
+      facilityName, 
+      facilityLocation, 
+      rating, 
+      comment, 
+      type, 
+      date 
+    } = req.body;
+
+    // Validate required fields
+    if (!facilityId || !facilityName || !rating || !type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+        details: 'Facility ID, facility name, rating, and type are required.'
+      });
+    }
+
+    // Create new feedback with dining-specific fields
+    const feedback = new Feedback({
+      userId: req.user._id,
+      type: 'dining',
+      category: type, // 'mess' or 'canteen'
+      title: `${type.charAt(0).toUpperCase() + type.slice(1)} Feedback: ${facilityName}`,
+      description: comment || 'No additional comments provided.',
+      isAnonymous: false,
+      priority: 'medium',
+      referenceNumber: `DINING-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      status: 'pending',
+      metadata: {
+        facilityId,
+        facilityName,
+        facilityLocation,
+        rating,
+        diningType: type,
+        submittedAt: date || new Date().toISOString()
+      }
+    });
+
+    await feedback.save();
+    
+    console.log(`Dining feedback submitted for ${facilityName} (${type}) with rating: ${rating}`);
+    
+    res.status(201).json({
+      success: true,
+      message: `Your feedback for ${facilityName} has been submitted successfully!`,
+      data: feedback
+    });
+  } catch (error) {
+    console.error('Error creating dining feedback:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error submitting dining feedback',
+      error: error.message
+    });
+  }
+};
+
+// Get feedback statistics
 exports.getStatistics = async (req, res) => {
   try {
     const stats = await Feedback.aggregate([
@@ -209,6 +272,115 @@ exports.getStatistics = async (req, res) => {
   } catch (error) {
     console.error('Error getting feedback statistics:', error);
     res.status(500).json({ message: 'Error fetching feedback statistics' });
+  }
+};
+
+// Get facility rating (average from feedback)
+exports.getFacilityRating = async (req, res) => {
+  try {
+    const { facilityId, type } = req.query;
+    
+    if (!facilityId || !type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required parameters',
+        details: 'facilityId and type (mess or canteen) are required'
+      });
+    }
+
+    // Find all dining feedback for this facility
+    const feedbackEntries = await Feedback.find({
+      type: 'dining',
+      category: type,
+      'metadata.facilityId': facilityId
+    });
+
+    if (!feedbackEntries || feedbackEntries.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          facilityId,
+          type,
+          averageRating: 0,
+          totalReviews: 0,
+          message: 'No ratings found for this facility'
+        }
+      });
+    }
+
+    // Calculate average rating
+    const totalRating = feedbackEntries.reduce((sum, feedback) => {
+      return sum + (feedback.metadata?.rating || 0);
+    }, 0);
+
+    const averageRating = (totalRating / feedbackEntries.length).toFixed(1);
+
+    res.json({
+      success: true,
+      data: {
+        facilityId,
+        type,
+        averageRating: parseFloat(averageRating),
+        totalReviews: feedbackEntries.length,
+        message: `Average rating calculated from ${feedbackEntries.length} reviews`
+      }
+    });
+  } catch (error) {
+    console.error('Error calculating facility rating:', error);
+    res.status(500).json({
+      success: false, 
+      message: 'Error calculating facility rating',
+      error: error.message
+    });
+  }
+};
+
+// Get dining feedback statistics
+exports.getDiningStatistics = async (req, res) => {
+  try {
+    const stats = await Feedback.aggregate([
+      {
+        $match: { 'type': 'dining' } // Only include dining-related feedback
+      },
+      {
+        $facet: {
+          'total': [{ $count: 'count' }],
+          'pending': [
+            { $match: { 'status': { $in: ['pending', 'in_progress'] } } },
+            { $count: 'count' }
+          ],
+          'resolved': [
+            { $match: { 'status': 'resolved' } },
+            { $count: 'count' }
+          ],
+          'byFacilityType': [
+            {
+              $group: {
+                _id: '$category', // 'mess' or 'canteen'
+                count: { $sum: 1 }
+              }
+            }
+          ]
+        }
+      }
+    ]);
+
+    const result = {
+      total: stats[0].total[0]?.count || 0,
+      pending: stats[0].pending[0]?.count || 0,
+      resolved: stats[0].resolved[0]?.count || 0,
+      byFacilityType: Object.fromEntries(
+        (stats[0].byFacilityType || []).map(item => [item._id, item.count])
+      )
+    };
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error getting dining feedback statistics:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching dining feedback statistics' 
+    });
   }
 };
 

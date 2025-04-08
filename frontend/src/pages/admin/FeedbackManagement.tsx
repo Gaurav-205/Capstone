@@ -38,7 +38,6 @@ const mockFeedback = [
     status: 'pending',
     date: '2024-04-03',
     category: 'Technical',
-    priority: 'high',
   },
   {
     id: 2,
@@ -49,7 +48,6 @@ const mockFeedback = [
     status: 'resolved',
     date: '2024-04-02',
     category: 'Facilities',
-    priority: 'medium',
   },
   // Add more mock data as needed
 ];
@@ -63,7 +61,6 @@ interface Feedback {
   status: string;
   date: string;
   category: string;
-  priority: string;
 }
 
 const FeedbackManagement: React.FC = () => {
@@ -93,19 +90,6 @@ const FeedbackManagement: React.FC = () => {
         return 'error';
       default:
         return 'default';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case 'high':
-        return '#ef5350';
-      case 'medium':
-        return '#fb8c00';
-      case 'low':
-        return '#66bb6a';
-      default:
-        return '#9e9e9e';
     }
   };
 
@@ -171,7 +155,6 @@ const FeedbackManagement: React.FC = () => {
                 <TableCell>Name</TableCell>
                 <TableCell>Subject</TableCell>
                 <TableCell>Category</TableCell>
-                <TableCell>Priority</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
@@ -186,16 +169,6 @@ const FeedbackManagement: React.FC = () => {
                     <TableCell>{feedback.subject}</TableCell>
                     <TableCell>
                       <Chip label={feedback.category} size="small" />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={feedback.priority}
-                        size="small"
-                        sx={{
-                          bgcolor: getPriorityColor(feedback.priority),
-                          color: 'white',
-                        }}
-                      />
                     </TableCell>
                     <TableCell>
                       <Chip

@@ -4,13 +4,13 @@ export interface Location {
   id: string;
   name: string;
   type: string;
-  coordinates: [number, number];
-  description: string;
-  icon: ReactNode;
+  coordinates: [number, number]; // longitude, latitude
+  description?: string;
+  icon?: ReactNode;
   details?: {
     contact?: {
-      phone: string;
-      email: string;
+      phone?: string;
+      email?: string;
       website?: string;
     };
     timings?: string;
@@ -35,20 +35,20 @@ export interface Location {
       customerFavorites: string[];
       ambience: string[];
     };
-    services?: {
+    services?: Array<{
       name: string;
       available: boolean;
-    }[];
+    }>;
     membership?: {
-      categories: string[];
-      access: {
+      categories?: string[];
+      access?: Array<{
         type: string;
         requirements: string;
-      }[];
+      }>;
     };
     features?: {
-      highlights: string[];
-      amenities: string[];
+      highlights?: string[];
+      amenities?: string[];
     };
     academic?: {
       programs: string[];
@@ -64,9 +64,9 @@ export interface Location {
   };
   address?: string;
   admissionFees?: {
-    adult: number;
-    child: number;
-    infant: number;
+    adult?: number;
+    child?: number;
+    infant?: number;
   };
   isCluster?: boolean;
   clusterSize?: number;

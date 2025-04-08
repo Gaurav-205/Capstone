@@ -10,19 +10,10 @@ import {
   Container,
   Card,
   CardContent,
-  CardActions,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Divider,
-  IconButton,
-  Chip,
   Fade,
   LinearProgress,
   Avatar,
-  AvatarGroup,
-  Stack,
+  useTheme,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -30,20 +21,8 @@ import {
   Feedback as FeedbackIcon,
   Home as HomeIcon,
   Search as SearchIcon,
-  Map as MapIcon,
-  Notifications as NotificationsIcon,
-  Assignment as AssignmentIcon,
-  ArrowForward as ArrowForwardIcon,
   Event as EventIcon,
-  Warning as WarningIcon,
-  TrendingUp as TrendingUpIcon,
-  People as PeopleIcon,
-  CalendarToday as CalendarIcon,
-  LocalLibrary as LibraryIcon,
-  CheckCircle as CheckCircleIcon,
-  Schedule as ScheduleIcon,
-  LocationOn as LocationIcon,
-  MeetingRoom as MeetingRoomIcon,
+  SupportAgent as SupportIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import CampusMap from '../components/CampusMap';
@@ -55,6 +34,7 @@ import Profile from './Profile';
 import NewsAndEvents from '../components/NewsAndEvents';
 import { lostFoundService } from '../services/lostFoundService';
 import feedbackService from '../services/feedbackService';
+import { getStatistics } from '../services/supportService';
 
 interface DashboardProps {
   section?: string;
@@ -73,10 +53,10 @@ interface DashboardStats {
     pending: number;
     total: number;
   };
-  facilities: {
-    available: number;
+  support: {
+    open: number;
     total: number;
-  };
+  } | null;
 }
 
 interface QuickAction {
@@ -94,6 +74,7 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [userName, setUserName] = useState<string>('User');
   const [stats, setStats] = useState<DashboardStats>({
     lostAndFound: {
       totalLost: 0,
@@ -107,12 +88,63 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
       pending: 0,
       total: 0
     },
-    facilities: {
-      available: 0,
-      total: 0
-    }
+    support: null // Initialize as null to indicate no access
   });
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
+  // Move getSupportStatistics inside the component
+  const getSupportStatistics = async () => {
+    // Check if user is admin before making the request
+    if (user?.role !== 'admin') {
+      return null;
+    }
+
+    try {
+      const response = await getStatistics();
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching support statistics:', error);
+      return null;
+    }
+  };
+
+  // Ensure user name is updated correctly when user object changes
+  useEffect(() => {
+    if (user) {
+      console.log('Dashboard: User object changed, updating name display', user);
+      let displayName = 'User';
+      
+      // Get name from user object with fallbacks
+      if (user.name && user.name.trim() !== '') {
+        displayName = user.name;
+      } else if (user.email) {
+        displayName = user.email.split('@')[0]
+          .charAt(0).toUpperCase() + user.email.split('@')[0].slice(1)
+          .replace(/[._]/g, ' ');
+      }
+      
+      console.log('Dashboard: Setting display name to', displayName);
+      setUserName(displayName);
+    }
+  }, [user]);
+
+  // On component mount, also check localStorage directly
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        console.log('Dashboard: Reading user data from localStorage', parsedUser);
+        
+        if (parsedUser.name && parsedUser.name.trim() !== '') {
+          console.log('Dashboard: Setting display name from localStorage to', parsedUser.name);
+          setUserName(parsedUser.name);
+        }
+      } catch (e) {
+        console.error('Error parsing user from localStorage:', e);
+      }
+    }
+  }, []);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -121,6 +153,9 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
       
       // Fetch feedback statistics
       const feedbackStats = await feedbackService.getStatistics();
+      
+      // Fetch support statistics (only for admin users)
+      const supportStats = await getSupportStatistics();
       
       // Update statistics
       setStats({
@@ -136,10 +171,7 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
           pending: feedbackStats.data.pending,
           total: feedbackStats.data.total
         },
-        facilities: {
-          available: 0,
-          total: 0
-        }
+        support: supportStats // This will be null for non-admin users
       });
 
       setLastUpdated(new Date());
@@ -147,9 +179,9 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       setError('Failed to load dashboard data');
-        setLoading(false);
-      }
-  }, []);
+      setLoading(false);
+    }
+  }, [user?.role]);
 
   // Initial data fetch
   useEffect(() => {
@@ -171,8 +203,8 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
       color: '#1976d2',
     },
     {
-      title: 'Book Facility',
-      description: 'Reserve campus facilities',
+      title: 'View Facilities',
+      description: 'Check campus facilities',
       icon: <HomeIcon />,
       action: () => navigate('/hostel-facility'),
       color: '#2e7d32',
@@ -219,7 +251,7 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
           }}
         />
         <Typography variant="h4" gutterBottom>
-          Welcome back, {user?.name}!
+          Welcome back, {userName}!
         </Typography>
         <Typography variant="subtitle1">
           Here's what's happening in your university life
@@ -250,11 +282,6 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
                   <SearchIcon />
                 </Avatar>
               </Box>
-              <LinearProgress 
-                variant="determinate" 
-                value={(stats.lostAndFound.totalFound / (stats.lostAndFound.totalLost + stats.lostAndFound.totalFound)) * 100}
-                sx={{ mt: 2 }}
-              />
             </CardContent>
           </Card>
         </Grid>
@@ -278,12 +305,6 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
                   <EventIcon />
                 </Avatar>
               </Box>
-              <LinearProgress 
-                variant="determinate" 
-                value={(stats.events.registered / stats.events.total) * 100}
-                color="success"
-                sx={{ mt: 2 }}
-              />
             </CardContent>
           </Card>
         </Grid>
@@ -307,44 +328,34 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
                   <FeedbackIcon />
                 </Avatar>
               </Box>
-              <LinearProgress 
-                variant="determinate" 
-                value={((stats.feedback.total - stats.feedback.pending) / stats.feedback.total) * 100}
-                color="warning"
-                sx={{ mt: 2 }}
-              />
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    Available Facilities
-                  </Typography>
-                  <Typography variant="h4">
-                    {stats.facilities.available}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Out of {stats.facilities.total} Total
-                  </Typography>
+        {stats.support !== null && (
+          <Grid item xs={12} sm={6} md={3}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom>
+                      Support Requests
+                    </Typography>
+                    <Typography variant="h4">
+                      {stats.support.open}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      Open Requests
+                    </Typography>
+                  </Box>
+                  <Avatar sx={{ bgcolor: 'info.main' }}>
+                    <SupportIcon />
+                  </Avatar>
                 </Box>
-                <Avatar sx={{ bgcolor: 'info.main' }}>
-                  <MeetingRoomIcon />
-                </Avatar>
-              </Box>
-              <LinearProgress 
-                variant="determinate" 
-                value={(stats.facilities.available / stats.facilities.total) * 100}
-                color="info"
-                sx={{ mt: 2 }}
-              />
-            </CardContent>
-          </Card>
-        </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
       </Grid>
 
       {/* Quick Actions */}
@@ -417,10 +428,10 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
                       </Avatar>
                       <Box>
                         <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mb: 0.5 }}>
-                          Book Facility
+                          View Facilities
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Reserve campus facilities
+                          Check campus facilities
                         </Typography>
                       </Box>
                     </Box>
@@ -499,7 +510,7 @@ const Dashboard: React.FC<DashboardProps> = ({ section = 'dashboard' }) => {
       </Grid>
 
       {/* News & Events Component */}
-      <NewsAndEvents />
+      <NewsAndEvents isAdmin={user?.role === 'admin'} />
     </Container>
   );
 

@@ -30,12 +30,41 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import profileService from '../services/profileService';
-import { getAvatarUrl, handleImageError } from '../utils/imageUtils';
+import { getAvatarUrl } from '../utils/avatarUtils';
 
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
   value: number;
+}
+
+// Add a form data interface
+interface ProfileFormData {
+  // Personal Information
+  name: string;
+  email: string;
+  phone: string;
+  avatar: string;
+  dateOfBirth: string;
+  gender: string;
+  
+  // Academic Information
+  studentId: string;
+  course: string;
+  semester: string;
+  batch: string;
+  hostelBlock: string;
+  roomNumber: string;
+
+  // Contact Preferences
+  emailNotifications: boolean;
+  smsNotifications: boolean;
+  pushNotifications: boolean;
+
+  // Password Change
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 }
 
 const TabPanel = (props: TabPanelProps) => {
@@ -74,22 +103,26 @@ const Profile: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState({ type: 'success', text: '' });
   const [showMessage, setShowMessage] = useState(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
-  // Using the utility function for avatar URL
+  console.log('Profile component rendering', { 
+    user, 
+    avatar: user?.avatar,
+    avatarUrl: user?.avatar ? getAvatarUrl(user.avatar) : 'none' 
+  });
 
-  console.log('Profile component rendering', { user });
-
-  const [formData, setFormData] = useState({
+  // Initialize form data with user data
+  const [formData, setFormData] = useState<ProfileFormData>({
     // Personal Information
     name: user?.name || '',
     email: user?.email || '',
-    phone: '',
+    phone: user?.phone || '',
     avatar: user?.avatar || '',
     dateOfBirth: '',
     gender: '',
     
     // Academic Information
-    studentId: '',
+    studentId: user?.studentId || '',
     course: '',
     semester: '',
     batch: '',
@@ -107,9 +140,55 @@ const Profile: React.FC = () => {
     confirmPassword: '',
   });
 
+  // Force refresh profile data on initial render
   useEffect(() => {
-    console.log('Profile useEffect running');
-    loadProfile();
+    const loadInitialData = async () => {
+      console.log('Initial profile data load');
+      try {
+        setLoading(true);
+        
+        // Force refresh profile data from server
+        await profileService.refreshProfile();
+        
+        // Load complete profile data
+        await loadProfile();
+        
+        setInitialLoadComplete(true);
+      } catch (error) {
+        console.error('Initial profile data load failed:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadInitialData();
+  }, []);
+
+  // Update form data when user changes
+  useEffect(() => {
+    if (user) {
+      console.log('User updated, updating form data with new user data:', user);
+      setFormData(prev => ({
+        ...prev,
+        name: user.name || prev.name,
+        email: user.email || prev.email,
+        phone: user.phone || prev.phone,
+        avatar: user.avatar || prev.avatar,
+        studentId: user.studentId || prev.studentId,
+      }));
+    }
+  }, [user]);
+
+  useEffect(() => {
+    // If we have a user with an avatar, make sure to update form data
+    if (user?.avatar) {
+      console.log('User avatar found on component mount, updating form data:', user.avatar);
+      const avatarString: string = user.avatar; // Type assertion
+      setFormData(prev => ({
+        ...prev,
+        avatar: avatarString
+      }));
+    }
   }, []);
 
   const loadProfile = async () => {
@@ -118,13 +197,18 @@ const Profile: React.FC = () => {
       setLoading(true);
       const profile = await profileService.getProfile();
       console.log('Received profile:', profile);
+      
+      // Make sure we're using the latest avatar from either source
+      const avatarToUse = profile.avatar || user?.avatar || '';
+      console.log('Using avatar:', avatarToUse);
+      
       setFormData(prev => {
         const newData = {
           ...prev,
-          name: profile.name || '',
-          email: profile.email || '',
-          phone: profile.phone || '',
-          avatar: profile.avatar || '',
+          name: profile.name || user?.name || '',
+          email: profile.email || user?.email || '',
+          phone: profile.phone || user?.phone || '',
+          avatar: avatarToUse,
           dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth).toISOString().split('T')[0] : '',
           gender: profile.gender || '',
           studentId: profile.studentId || '',
@@ -140,6 +224,11 @@ const Profile: React.FC = () => {
         console.log('Updated form data:', newData);
         return newData;
       });
+      
+      // If we got a new avatar from the profile service, update the auth context
+      if (profile.avatar && profile.avatar !== user?.avatar) {
+        updateUserState({ avatar: profile.avatar });
+      }
     } catch (error: unknown) {
       console.error('Error loading profile:', error);
       setError(handleApiError(error));
@@ -173,12 +262,22 @@ const Profile: React.FC = () => {
       try {
         setLoading(true);
         const response = await profileService.uploadAvatar(file);
-        setFormData(prev => ({ ...prev, avatar: response.avatar }));
+        console.log('Avatar upload response:', response);
+        
+        // Extract the avatar path
+        const avatarPath = response.avatar;
+        console.log('Avatar path received:', avatarPath);
+        
+        // Update the form data with the new avatar
+        setFormData(prev => ({ ...prev, avatar: avatarPath }));
+        
+        // Update auth context with new avatar
+        updateUserState({ avatar: avatarPath });
+        
         setMessage({ type: 'success', text: 'Profile picture updated successfully!' });
         setShowMessage(true);
-        // Update auth context with new avatar
-        updateUserState({ avatar: response.avatar });
       } catch (error) {
+        console.error('Avatar upload error:', error);
         setMessage({ type: 'error', text: 'Failed to update profile picture' });
         setShowMessage(true);
       } finally {
@@ -189,6 +288,15 @@ const Profile: React.FC = () => {
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+    
+    // When navigating to the personal tab (index 0), refresh the avatar from user context
+    if (newValue === 0 && user?.avatar) {
+      const avatarString: string = user.avatar; // Type assertion
+      setFormData(prev => ({
+        ...prev,
+        avatar: avatarString
+      }));
+    }
   };
 
   const validateForm = () => {
@@ -311,13 +419,32 @@ const Profile: React.FC = () => {
                     </Tooltip>
                   }
                 >
-                  <Avatar
-                    src={getAvatarUrl(formData.avatar)}
-                    sx={{ width: 100, height: 100, cursor: 'pointer' }}
-                    onClick={handleAvatarClick}
-                  >
-                    {formData.name.charAt(0)}
-                  </Avatar>
+                  {loading ? (
+                    <Avatar
+                      sx={{
+                        width: 100,
+                        height: 100,
+                        bgcolor: 'grey.300'
+                      }}
+                    >
+                      <CircularProgress size={40} />
+                    </Avatar>
+                  ) : (
+                    <Avatar
+                      src={getAvatarUrl(formData.avatar)}
+                      alt={formData.name || 'User avatar'}
+                      sx={{ 
+                        width: 100, 
+                        height: 100, 
+                        cursor: 'pointer',
+                        fontSize: '3rem', // Larger font size for the fallback letter
+                        bgcolor: 'primary.main', // Use primary color for fallback background
+                      }}
+                      onClick={handleAvatarClick}
+                    >
+                      {formData.name ? formData.name.charAt(0).toUpperCase() : <PersonIcon fontSize="large" />}
+                    </Avatar>
+                  )}
                 </Badge>
                 <input
                   type="file"

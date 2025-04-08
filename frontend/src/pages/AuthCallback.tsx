@@ -1,20 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Box, Typography, CircularProgress, Alert, Button } from '@mui/material';
-import authService from '../services/auth.service';
+import { useAuth } from '../contexts/AuthContext';
 
 const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { handleGoogleCallback } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
     const processAuth = async () => {
       try {
-        // Clear any existing auth data to prevent state conflicts
-        authService.clearAuth();
-        
         // Get the token from search params
         const searchParams = new URLSearchParams(location.search);
         const token = searchParams.get('token');
@@ -29,16 +27,11 @@ const AuthCallback: React.FC = () => {
         }
 
         // Handle the authentication with the received token
-        await authService.handleGoogleCallback(token);
+        await handleGoogleCallback(token);
         
         // Clear any redirect counts or temporary storage
         sessionStorage.removeItem('authRedirectCount');
         localStorage.removeItem('returnUrl');
-        
-        // Verify authentication state
-        if (!authService.isAuthenticated()) {
-          throw new Error('Authentication failed to complete');
-        }
 
         // Get user data
         const userStr = localStorage.getItem('user');
@@ -54,15 +47,13 @@ const AuthCallback: React.FC = () => {
       } catch (err: any) {
         console.error('Authentication error:', err);
         setError(err.message || 'Authentication failed');
-        // Clean up any partial auth state
-        authService.clearAuth();
       } finally {
         setIsProcessing(false);
       }
     };
 
     processAuth();
-  }, [navigate, location]);
+  }, [navigate, location, handleGoogleCallback]);
 
   if (error) {
     return (

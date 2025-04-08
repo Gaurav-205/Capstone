@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
   Grid,
   Card,
   CardContent,
-  CardMedia,
   Button,
   IconButton,
   Dialog,
@@ -22,15 +21,11 @@ import {
   Alert,
   Stack,
   Chip,
-  Avatar,
-  AvatarGroup,
   Link,
   Snackbar,
   Tab,
   Tabs,
-  Tooltip,
   Paper,
-  Autocomplete,
   List,
   ListItem,
   ListItemIcon,
@@ -44,22 +39,21 @@ import {
   Delete as DeleteIcon,
   Close as CloseIcon,
   Search as SearchIcon,
-  CloudUpload as CloudUploadIcon,
   LocationOn,
   CalendarToday,
   Person,
   Phone,
   Email,
   Description,
-  Image as ImageIcon,
   CheckCircle,
-  FilterList,
   Category,
 } from '@mui/icons-material';
 import { lostFoundService, LostFoundItem, LostFoundStats } from '../services/lostFoundService';
+import { useAuth } from '../contexts/AuthContext';
+// import { Location as MapLocation } from '../types/map';
 
 interface Item {
-  id: string;
+  _id: string;
   title: string;
   description: string;
   category: string;
@@ -86,16 +80,6 @@ const categories = [
   'Others'
 ];
 
-const locations = [
-  'Academic Block',
-  'Library',
-  'Cafeteria',
-  'Sports Complex',
-  'Hostel',
-  'Parking Area',
-  'Other Areas'
-];
-
 const getExpiryInfo = (item: Item) => {
   const createdDate = new Date(item.createdAt);
   const expiryDate = new Date(createdDate.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from creation
@@ -109,6 +93,7 @@ const getExpiryInfo = (item: Item) => {
 };
 
 const LostAndFound: React.FC = () => {
+  const { user } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
@@ -125,9 +110,9 @@ const LostAndFound: React.FC = () => {
     category: '',
     location: '',
     status: 'lost',
-    contactName: '',
-    contactEmail: '',
-    contactPhone: '',
+    contactName: user?.name || '',
+    contactEmail: user?.email || '',
+    contactPhone: user?.phone || '',
     date: new Date().toISOString().split('T')[0]
   });
   const [loading, setLoading] = useState(true);
@@ -155,9 +140,9 @@ const LostAndFound: React.FC = () => {
         category: '',
         location: '',
         status: 'lost',
-        contactName: '',
-        contactEmail: '',
-        contactPhone: '',
+        contactName: user?.name || '',
+        contactEmail: user?.email || '',
+        contactPhone: user?.phone || '',
         date: new Date().toISOString().split('T')[0]
       });
     }
@@ -169,7 +154,7 @@ const LostAndFound: React.FC = () => {
     setSelectedItem(null);
   };
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -196,32 +181,49 @@ const LostAndFound: React.FC = () => {
       setLoading(false);
       setInitialLoading(false);
     }
-  };
+  }, [selectedTab, selectedCategory, selectedStatus, searchQuery, currentPage]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const response = await lostFoundService.getStatistics();
       setStats(response.data);
     } catch (err) {
       console.error('Error fetching statistics:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!initialLoading) {
+      fetchItems();
+    }
+  }, [selectedTab, currentPage, fetchItems, initialLoading]);
 
   useEffect(() => {
     const initializeData = async () => {
       setInitialLoading(true);
-      await Promise.all([fetchItems(), fetchStats()]);
-      setInitialLoading(false);
+      try {
+        // Fetch items, stats, and locations concurrently
+        await Promise.all([
+          fetchItems(),
+          fetchStats(),
+        ]);
+      } catch (error) {
+        console.error('Error initializing data:', error);
+        setError('Failed to load data. Please try again later.');
+      } finally {
+        setInitialLoading(false);
+      }
     };
 
     initializeData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (searchQuery || selectedCategory || selectedStatus) {
       fetchItems();
     }
-  }, [searchQuery, selectedCategory, selectedStatus]);
+  }, [searchQuery, selectedCategory, selectedStatus, fetchItems]);
 
   const handleSubmit = async () => {
     if (!formData.title || !formData.category || !formData.location || !formData.contactName || !formData.contactEmail) {
@@ -231,10 +233,18 @@ const LostAndFound: React.FC = () => {
       return;
     }
 
+    // Validate location - ensure it's not too short
+    if (formData.location.trim().length < 3) {
+      setSnackbarMessage('Please enter a valid location (minimum 3 characters)');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+      return;
+    }
+
     try {
       setLoading(true);
       if (selectedItem) {
-        await lostFoundService.updateItem(selectedItem.id, formData);
+        await lostFoundService.updateItem(selectedItem._id, formData);
         setSnackbarMessage('Item updated successfully');
       } else {
         console.log('Submitting form data:', JSON.stringify(formData, null, 2));
@@ -261,17 +271,27 @@ const LostAndFound: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
+    console.log('Attempting to delete item with ID:', id);
+    if (!id) {
+      console.error('Delete operation failed: No ID provided');
+      setSnackbarMessage('Cannot delete item: Missing item ID');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
+      console.log('Calling deleteItem service with ID:', id);
       await lostFoundService.deleteItem(id);
       setSnackbarMessage('Item deleted successfully');
       setSnackbarSeverity('success');
-      fetchItems();
-      fetchStats();
-    } catch (err) {
-      setSnackbarMessage('Failed to delete item. Please try again.');
+      await fetchItems();
+      await fetchStats();
+    } catch (error) {
+      console.error('Error in delete operation:', error);
+      setSnackbarMessage(error instanceof Error ? error.message : 'Failed to delete item');
       setSnackbarSeverity('error');
-      console.error('Error deleting item:', err);
     } finally {
       setShowSnackbar(true);
       setLoading(false);
@@ -298,6 +318,26 @@ const LostAndFound: React.FC = () => {
 
   const handleCardClick = (item: Item) => {
     setSelectedContactItem(item);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }> | SelectChangeEvent<'lost' | 'found'>) => {
+    const { name, value } = e.target;
+    
+    if (name) {
+      // Special handling for phone numbers to only allow digits
+      if (name === 'contactPhone') {
+        const numericValue = String(value).replace(/\D/g, '').slice(0, 10);
+        setFormData({
+          ...formData,
+          [name]: numericValue
+        });
+      } else {
+        setFormData({
+          ...formData,
+          [name]: value
+        });
+      }
+    }
   };
 
   const filteredItems = items.filter(item => {
@@ -336,7 +376,6 @@ const LostAndFound: React.FC = () => {
 
   return (
     <Box sx={{ p: 3, bgcolor: '#f8fafc', minHeight: '100vh' }}>
-      {/* Header with Statistics */}
       <Box sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" sx={{ color: '#1e293b', fontWeight: 600 }}>
@@ -388,7 +427,6 @@ const LostAndFound: React.FC = () => {
         )}
       </Box>
 
-      {/* Filters and Search */}
       <Paper sx={{ p: 2, mb: 3, borderRadius: '12px' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={4}>
@@ -413,7 +451,7 @@ const LostAndFound: React.FC = () => {
                 <Select
                   value={selectedCategory}
                   label="Category"
-                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  onChange={(e: SelectChangeEvent) => setSelectedCategory(e.target.value)}
                 >
                   <MenuItem value="">All</MenuItem>
                   {categories.map((category) => (
@@ -426,7 +464,7 @@ const LostAndFound: React.FC = () => {
                 <Select
                   value={selectedStatus}
                   label="Status"
-                  onChange={(e) => setSelectedStatus(e.target.value as 'all' | 'resolved' | 'active')}
+                  onChange={(e: SelectChangeEvent) => setSelectedStatus(e.target.value as 'all' | 'resolved' | 'active')}
                 >
                   <MenuItem value="all">All</MenuItem>
                   <MenuItem value="active">Active</MenuItem>
@@ -438,7 +476,6 @@ const LostAndFound: React.FC = () => {
         </Grid>
       </Paper>
 
-      {/* Tabs */}
       <Tabs
         value={selectedTab}
         onChange={handleTabChange}
@@ -449,7 +486,6 @@ const LostAndFound: React.FC = () => {
         <Tab label="Found Items" />
       </Tabs>
 
-      {/* Loading and Error States */}
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
           <CircularProgress />
@@ -462,7 +498,6 @@ const LostAndFound: React.FC = () => {
         </Alert>
       )}
 
-      {/* Show empty state when no items and not loading */}
       {!loading && items.length === 0 && !error && (
         <Box 
           sx={{ 
@@ -491,10 +526,9 @@ const LostAndFound: React.FC = () => {
         </Box>
       )}
 
-      {/* Items Grid */}
       <Grid container spacing={3}>
         {filteredItems.map((item) => (
-          <Grid item xs={12} sm={6} md={4} key={item.id}>
+          <Grid item xs={12} sm={6} md={4} key={item._id}>
             <Card
               sx={{
                 height: '100%',
@@ -572,7 +606,6 @@ const LostAndFound: React.FC = () => {
                   </Box>
                 </Stack>
 
-                {/* Action Buttons */}
                 {!item.isResolved && (
                   <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
                     {lostFoundService.isItemOwner(item) ? (
@@ -594,7 +627,14 @@ const LostAndFound: React.FC = () => {
                           color="error"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDelete(item.id);
+                            if (item && item._id) {
+                              handleDelete(item._id);
+                            } else {
+                              console.error('Cannot delete: Item or item ID is missing', item);
+                              setSnackbarMessage('Cannot delete item: Missing item ID');
+                              setSnackbarSeverity('error');
+                              setShowSnackbar(true);
+                            }
                           }}
                           startIcon={<DeleteIcon />}
                         >
@@ -606,7 +646,7 @@ const LostAndFound: React.FC = () => {
                           color="success"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleMarkResolved(item.id);
+                            handleMarkResolved(item._id);
                           }}
                           startIcon={<CheckCircle />}
                         >
@@ -615,14 +655,12 @@ const LostAndFound: React.FC = () => {
                       </>
                     ) : (
                       <Typography variant="caption" color="textSecondary">
-                        {/* Debug info - remove in production */}
-                        Item ID: {item.id}, User ID: {item.userId}
+                        Item ID: {item._id}, User ID: {item.userId}
                       </Typography>
                     )}
                   </Stack>
                 )}
 
-                {/* Show a message if the item is resolved */}
                 {item.isResolved && (
                   <Typography color="success.main" sx={{ mt: 2 }}>
                     <CheckCircle sx={{ mr: 1, verticalAlign: 'middle' }} />
@@ -635,7 +673,6 @@ const LostAndFound: React.FC = () => {
         ))}
       </Grid>
 
-      {/* Pagination */}
       {totalItems > 0 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <Stack direction="row" spacing={2}>
@@ -658,136 +695,381 @@ const LostAndFound: React.FC = () => {
         </Box>
       )}
 
-      {/* Add/Edit Dialog */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
+        aria-labelledby="form-dialog-title"
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
+            overflow: 'hidden'
+          }
+        }}
+        keepMounted={false}
       >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">
-              {selectedItem ? 'Edit Item' : 'Report New Item'}
-            </Typography>
-            <IconButton onClick={handleCloseDialog}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
+        <DialogTitle 
+          id="form-dialog-title"
+          sx={{ 
+            bgcolor: 'primary.main', 
+            color: 'white',
+            py: 2,
+            '& .MuiTypography-root': {
+              fontSize: '1.25rem',
+              fontWeight: 600
+            }
+          }}
+        >
+          {selectedItem ? 'Edit Item' : 'Report a New Item'}
         </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 2 }}>
-            <TextField
-              fullWidth
-              label="Title"
-              required
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            />
-            <TextField
-              fullWidth
-              label="Description"
-              multiline
-              rows={3}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
-            <FormControl fullWidth required>
-              <InputLabel>Category</InputLabel>
-              <Select
-                value={formData.category}
+        <DialogContent sx={{ px: 3, py: 3 }}>
+          <Grid container spacing={3} sx={{ mt: 0 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Title"
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                required
+                variant="outlined"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Description fontSize="small" sx={{ color: 'primary.main' }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: '2px'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                    borderRadius: '8px'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Description"
+                name="description"
+                multiline
+                rows={3}
+                value={formData.description}
+                onChange={handleInputChange}
+                required
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: '2px'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                    borderRadius: '8px'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                fullWidth
                 label="Category"
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                name="category"
+                value={formData.category || ''}
+                onChange={handleInputChange}
+                required
+                variant="outlined"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Category fontSize="small" sx={{ color: 'primary.main' }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: '2px'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                    borderRadius: '8px'
+                  }
+                }}
               >
                 {categories.map((category) => (
-                  <MenuItem key={category} value={category}>{category}</MenuItem>
+                  <MenuItem key={category} value={category}>
+                    {category}
+                  </MenuItem>
                 ))}
-              </Select>
-            </FormControl>
-            <Autocomplete
-              freeSolo
-              fullWidth
-              options={locations}
-              value={formData.location || null}
-              onChange={(event, newValue) => {
-                setFormData({ ...formData, location: newValue || '' });
-              }}
-              onInputChange={(event, newInputValue) => {
-                setFormData({ ...formData, location: newInputValue });
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Location"
-                  required
-                  error={!formData.location}
-                  helperText={!formData.location ? "Location is required" : ""}
-                />
-              )}
-            />
-            <FormControl fullWidth required>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={formData.status}
-                label="Status"
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'lost' | 'found' })}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Location"
+                name="location"
+                value={formData.location || ''}
+                onChange={handleInputChange}
+                required
+                variant="outlined"
+                placeholder="Enter location details"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LocationOn fontSize="small" sx={{ color: 'primary.main' }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: '2px'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                    borderRadius: '8px'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Date"
+                name="date"
+                type="date"
+                value={formData.date}
+                onChange={handleInputChange}
+                InputLabelProps={{ shrink: true }}
+                required
+                variant="outlined"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <CalendarToday fontSize="small" sx={{ color: 'primary.main' }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: '2px'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                    borderRadius: '8px'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl 
+                fullWidth 
+                required
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: '2px'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                    borderRadius: '8px'
+                  }
+                }}
               >
-                <MenuItem value="lost">Lost</MenuItem>
-                <MenuItem value="found">Found</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              fullWidth
-              type="date"
-              label="Date"
-              required
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              fullWidth
-              label="Contact Name"
-              required
-              value={formData.contactName}
-              onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
-            />
-            <TextField
-              fullWidth
-              label="Contact Email"
-              required
-              type="email"
-              value={formData.contactEmail || ''}
-              onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-              error={!!formData.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)}
-              helperText={!!formData.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail) ? "Please enter a valid email address" : ""}
-            />
-            <TextField
-              fullWidth
-              label="Contact Phone"
-              value={formData.contactPhone || ''}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                setFormData({ ...formData, contactPhone: value });
-              }}
-              error={!!formData.contactPhone && !/^\d{10}$/.test(formData.contactPhone)}
-              helperText={!!formData.contactPhone && !/^\d{10}$/.test(formData.contactPhone) ? "Phone number must be 10 digits" : ""}
-            />
-          </Stack>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={formData.status}
+                  label="Status"
+                  onChange={handleInputChange}
+                  name="status"
+                  startAdornment={
+                    <InputAdornment position="start">
+                      {formData.status === 'lost' ? 
+                        <SearchIcon fontSize="small" sx={{ color: 'error.main' }} /> : 
+                        <CheckCircle fontSize="small" sx={{ color: 'success.main' }} />
+                      }
+                    </InputAdornment>
+                  }
+                >
+                  <MenuItem value="lost">Lost</MenuItem>
+                  <MenuItem value="found">Found</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Typography variant="subtitle1" gutterBottom sx={{ 
+                fontWeight: 600, 
+                color: 'text.secondary',
+                mt: 1,
+                borderBottom: '1px solid #e2e8f0',
+                pb: 1
+              }}>
+                Contact Information
+              </Typography>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Contact Name"
+                name="contactName"
+                value={formData.contactName || ''}
+                onChange={handleInputChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Person fontSize="small" sx={{ color: 'primary.main' }} />
+                    </InputAdornment>
+                  ),
+                }}
+                required
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: '2px'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                    borderRadius: '8px'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Contact Email"
+                name="contactEmail"
+                type="email"
+                value={formData.contactEmail || ''}
+                onChange={handleInputChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Email fontSize="small" sx={{ color: 'primary.main' }} />
+                    </InputAdornment>
+                  ),
+                }}
+                required
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: '2px'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                    borderRadius: '8px'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Contact Phone"
+                name="contactPhone"
+                value={formData.contactPhone || ''}
+                onChange={handleInputChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Phone fontSize="small" sx={{ color: 'primary.main' }} />
+                    </InputAdornment>
+                  ),
+                }}
+                required
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'primary.main',
+                      borderWidth: '2px'
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'primary.main',
+                    },
+                    borderRadius: '8px'
+                  }
+                }}
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0' }}>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+        <DialogActions sx={{ 
+          p: 3, 
+          borderTop: '1px solid #e2e8f0',
+          justifyContent: 'space-between',
+          bgcolor: '#f8fafc'
+        }}>
+          <Button 
+            onClick={handleCloseDialog}
+            variant="outlined"
+            startIcon={<CloseIcon />}
+            sx={{
+              borderRadius: '8px',
+              px: 3,
+              py: 1,
+              color: 'text.secondary',
+              borderColor: '#e2e8f0',
+              '&:hover': {
+                borderColor: '#cbd5e1',
+                bgcolor: '#f1f5f9'
+              }
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
             disabled={!formData.title || !formData.category || !formData.location || !formData.contactName || !formData.contactEmail}
+            startIcon={selectedItem ? <EditIcon /> : <AddIcon />}
+            sx={{
+              borderRadius: '8px',
+              px: 3,
+              py: 1,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+              '&:hover': {
+                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
+                transform: 'translateY(-1px)'
+              },
+              transition: 'all 0.2s'
+            }}
           >
-            {selectedItem ? 'Update' : 'Submit'}
+            {selectedItem ? 'Update Item' : 'Submit Item'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Contact Details Dialog */}
       <Dialog
         open={!!selectedContactItem}
         onClose={() => setSelectedContactItem(null)}
@@ -941,7 +1223,6 @@ const LostAndFound: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar for notifications */}
       <Snackbar
         open={showSnackbar}
         autoHideDuration={4000}

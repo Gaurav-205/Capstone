@@ -22,7 +22,9 @@ import {
   Select,
   MenuItem,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Stack,
+  Divider
 } from '@mui/material';
 import { 
   Add as AddIcon,
@@ -40,7 +42,6 @@ const ComplaintTracker: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -58,7 +59,7 @@ const ComplaintTracker: React.FC = () => {
 
   useEffect(() => {
     filterFeedback();
-  }, [feedback, searchTerm, statusFilter, priorityFilter, categoryFilter]);
+  }, [feedback, searchTerm, statusFilter, categoryFilter]);
 
   const fetchFeedback = async () => {
     try {
@@ -95,11 +96,6 @@ const ComplaintTracker: React.FC = () => {
       filtered = filtered.filter(item => item.status === statusFilter);
     }
 
-    // Apply priority filter
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter(item => item.priority === priorityFilter);
-    }
-
     // Apply category filter
     if (categoryFilter !== 'all') {
       filtered = filtered.filter(item => item.category === categoryFilter);
@@ -118,21 +114,6 @@ const ComplaintTracker: React.FC = () => {
         return 'success';
       case 'closed':
         return 'default';
-      default:
-        return 'default';
-    }
-  };
-
-  const getPriorityColor = (priority: Feedback['priority']) => {
-    switch (priority) {
-      case 'urgent':
-        return 'error';
-      case 'high':
-        return 'error';
-      case 'medium':
-        return 'warning';
-      case 'low':
-        return 'success';
       default:
         return 'default';
     }
@@ -183,6 +164,11 @@ const ComplaintTracker: React.FC = () => {
     </Grid>
   );
 
+  // Get unique categories from feedback using filter+indexOf
+  const categories = feedback
+    .map(item => item.category)
+    .filter((category, index, array) => array.indexOf(category) === index);
+
   return (
     <Container maxWidth="lg">
       <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
@@ -211,63 +197,59 @@ const ComplaintTracker: React.FC = () => {
           </Box>
         </Box>
 
-        <Box sx={{ mb: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <TextField
-            placeholder="Search complaints..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ flex: 1, minWidth: 200 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              label="Status"
-            >
-              <MenuItem value="all">All Statuses</MenuItem>
-              <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="in_progress">In Progress</MenuItem>
-              <MenuItem value="resolved">Resolved</MenuItem>
-              <MenuItem value="closed">Closed</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>Priority</InputLabel>
-            <Select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              label="Priority"
-            >
-              <MenuItem value="all">All Priorities</MenuItem>
-              <MenuItem value="low">Low</MenuItem>
-              <MenuItem value="medium">Medium</MenuItem>
-              <MenuItem value="high">High</MenuItem>
-              <MenuItem value="urgent">Urgent</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>Category</InputLabel>
-            <Select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              label="Category"
-            >
-              <MenuItem value="all">All Categories</MenuItem>
-              <MenuItem value="academic">Academic</MenuItem>
-              <MenuItem value="facilities">Facilities</MenuItem>
-              <MenuItem value="harassment">Harassment</MenuItem>
-              <MenuItem value="other">Other</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
+        <Paper sx={{ p: 3, mb: 4 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                placeholder="Search by keyword or reference number..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    label="Status"
+                  >
+                    <MenuItem value="all">All Statuses</MenuItem>
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="in_progress">In Progress</MenuItem>
+                    <MenuItem value="resolved">Resolved</MenuItem>
+                    <MenuItem value="closed">Closed</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Category</InputLabel>
+                  <Select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    label="Category"
+                  >
+                    <MenuItem value="all">All Categories</MenuItem>
+                    {categories.map((category) => (
+                      <MenuItem key={category} value={category}>
+                        {category}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Stack>
+            </Grid>
+          </Grid>
+        </Paper>
 
         {isLoading ? (
           <LoadingSkeleton />
@@ -282,112 +264,59 @@ const ComplaintTracker: React.FC = () => {
         ) : (
           <Grid container spacing={3}>
             {filteredFeedback.map((item) => (
-              <Grid item xs={12} key={item._id}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                      <Box>
-                        <Typography variant="h6" gutterBottom>
-                          {item.title}
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                          <Chip 
-                            label={item.category} 
-                            size="small" 
-                            color="secondary"
-                          />
-                          <Chip 
-                            label={item.status.replace('_', ' ')} 
-                            size="small" 
-                            color={getStatusColor(item.status)}
-                          />
-                          <Chip 
-                            label={item.priority} 
-                            size="small" 
-                            color={getPriorityColor(item.priority)}
-                          />
-                        </Box>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          Reference: {item.referenceNumber}
-                        </Typography>
-                      </Box>
-                      {item.status === 'resolved' && !item.userRating && (
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          {[1, 2, 3, 4, 5].map((rating) => (
-                            <Tooltip key={rating} title={`Rate ${rating} stars`}>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleRateResolution(item._id, rating)}
-                              >
-                                <StarBorderIcon />
-                              </IconButton>
-                            </Tooltip>
-                          ))}
-                        </Box>
-                      )}
-                    </Box>
-
-                    <Typography variant="body1" paragraph>
-                      {item.description}
+              <Grid item xs={12} sm={6} md={4} key={item._id}>
+                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" gutterBottom noWrap>
+                      {item.title}
                     </Typography>
-
-                    {item.attachments && item.attachments.length > 0 && (
-                      <Box sx={{ mt: 2 }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                          Attachments:
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          {item.attachments.map((attachment, index) => (
-                            <Button
-                              key={index}
-                              size="small"
-                              startIcon={<DownloadIcon />}
-                              onClick={() => handleDownloadAttachment(attachment.url, attachment.filename)}
-                              variant="outlined"
-                            >
-                              {attachment.filename}
-                            </Button>
-                          ))}
-                        </Box>
-                      </Box>
-                    )}
-
-                    {item.resolution && (
-                      <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                          Resolution:
-                        </Typography>
-                        <Typography variant="body2" paragraph>
-                          {item.resolution.description}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Resolved on {new Date(item.resolution.resolvedAt).toLocaleDateString()}
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {item.userRating && (
-                      <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="subtitle2">Your Rating:</Typography>
-                        {[1, 2, 3, 4, 5].map((rating) => (
-                          <StarIcon
-                            key={rating}
-                            color={rating <= item.userRating!.rating ? 'primary' : 'disabled'}
-                          />
-                        ))}
-                      </Box>
-                    )}
-
-                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Submitted on {new Date(item.createdAt).toLocaleDateString()}
-                      </Typography>
-                      {item.expectedResolutionDate && (
-                        <Typography variant="caption" color="text.secondary">
-                          Expected resolution: {new Date(item.expectedResolutionDate).toLocaleDateString()}
-                        </Typography>
-                      )}
+                    
+                    <Box sx={{ mb: 2 }}>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Chip 
+                          label={item.type}
+                          size="small"
+                          color="primary"
+                        />
+                        <Chip 
+                          label={item.category}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Chip 
+                          label={item.status.replace('_', ' ')}
+                          size="small"
+                          color={getStatusColor(item.status)}
+                        />
+                      </Stack>
                     </Box>
+                    
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {item.description.length > 120 
+                        ? `${item.description.substring(0, 120)}...` 
+                        : item.description
+                      }
+                    </Typography>
+                    
+                    <Divider sx={{ my: 1 }} />
+                    
+                    <Stack spacing={0.5} sx={{ mt: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Reference:</strong> {item.referenceNumber}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Submitted:</strong> {new Date(item.createdAt).toLocaleDateString()}
+                      </Typography>
+                      
+                      {item.resolution && (
+                        <Box mt={1}>
+                          <Typography variant="body2" color="text.secondary">
+                            <strong>Resolution:</strong> {item.resolution.description.substring(0, 60)}
+                            {item.resolution.description.length > 60 ? '...' : ''}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Stack>
                   </CardContent>
                 </Card>
               </Grid>

@@ -199,12 +199,6 @@ const HostelFacilityInfo: React.FC = () => {
                     sx={{ mb: 1 }}
                   />
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Bed sx={{ mr: 1 }} />
-                    <Typography variant="body2">
-                      Rooms: {hostel.occupiedRooms}/{hostel.totalRooms}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                     <LocationOn sx={{ mr: 1 }} />
                     <Typography variant="body2">
                       {hostel.location.building}, {hostel.location.floor}

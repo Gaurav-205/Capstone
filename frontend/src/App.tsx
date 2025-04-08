@@ -16,9 +16,13 @@ import NewsAndEventsPage from './pages/NewsAndEventsPage';
 import AdminDashboard from './pages/admin/Dashboard';
 import UserManagement from './pages/admin/UserManagement';
 import FeedbackManagement from './pages/admin/FeedbackManagement';
+import EventManagement from './pages/admin/EventManagement';
+import NewsManagement from './pages/admin/NewsManagement';
 import PrivateRoute from './components/PrivateRoute';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
+import Support from './pages/Support';
+import EventDetails from './pages/EventDetails';
 
 const App: React.FC = () => {
   return (
@@ -40,6 +44,8 @@ const App: React.FC = () => {
               <Route path="/admin/hostels" element={<div>Hostels Management</div>} />
               <Route path="/admin/lost-found" element={<div>Lost & Found Management</div>} />
               <Route path="/admin/feedback" element={<FeedbackManagement />} />
+              <Route path="/admin/events" element={<EventManagement />} />
+              <Route path="/admin/news" element={<NewsManagement />} />
               <Route path="/admin/settings" element={<div>Admin Settings</div>} />
             </Route>
 
@@ -53,6 +59,8 @@ const App: React.FC = () => {
               <Route path="/feedback" element={<PrivateRoute><Dashboard section="feedback" /></PrivateRoute>} />
               <Route path="/profile" element={<PrivateRoute><Dashboard section="profile" /></PrivateRoute>} />
               <Route path="/news-events" element={<PrivateRoute><NewsAndEventsPage /></PrivateRoute>} />
+              <Route path="/events/:id" element={<PrivateRoute><EventDetails /></PrivateRoute>} />
+              <Route path="/support" element={<PrivateRoute><Support /></PrivateRoute>} />
               <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
               <Route path="/" element={<PrivateRoute><Navigate to="/dashboard" replace /></PrivateRoute>} />
             </Route>
@@ -61,11 +69,8 @@ const App: React.FC = () => {
             <Route path="/set-password" element={<PrivateRoute><SetPassword /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
 
-            {/* Redirect root to login */}
-            <Route path="/" element={<PrivateRoute><Navigate to="/login" replace /></PrivateRoute>} />
-
-            {/* 404 Route */}
-            <Route path="*" element={<PrivateRoute><NotFound /></PrivateRoute>} />
+            {/* 404 Route - No need for duplicate root route */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>
       </AuthProvider>

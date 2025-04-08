@@ -71,6 +71,14 @@ class ItemService {
     return dateObj instanceof Date && !isNaN(dateObj.getTime());
   }
 
+  private async getCurrentUserOrThrow(): Promise<User> {
+    const user = await authService.getCurrentUser();
+    if (!user) {
+      throw new Error('User not found');
+    }
+    return user;
+  }
+
   public async getAllItems(): Promise<Item[]> {
     try {
       const response = await axios.get(`${API_URL}/items`);
@@ -153,15 +161,8 @@ class ItemService {
       const response = await axios.get<Item>(`${API_URL}/items/${id}`);
       const item = response.data;
 
-      const user = authService.getCurrentUser();
-      if (!user) {
-        throw new Error('User not found');
-      }
-
+      const user = await this.getCurrentUserOrThrow();
       const userId = getUserId(user);
-      if (!userId) {
-        throw new Error('User ID not found');
-      }
 
       // Only allow status updates by the owner, except for claiming
       if (status !== 'claimed' && item.postedBy._id !== userId) {
@@ -213,12 +214,11 @@ class ItemService {
         throw new Error('Invalid item data received from server');
       }
 
-      const user = authService.getCurrentUser();
-      if (!user) {
-        throw new Error('User not found');
-      }
-
+      const user = await this.getCurrentUserOrThrow();
       const userId = getUserId(user);
+      
+      // userId is guaranteed to be non-null here since getCurrentUserOrThrow would throw if user was null
+      // and getUserId has already been called. Let's add an extra check just in case.
       if (!userId) {
         throw new Error('User ID not found');
       }
@@ -241,18 +241,11 @@ class ItemService {
         throw new Error('You must be logged in to view your items');
       }
 
-      const user = authService.getCurrentUser();
-      if (!user) {
-        throw new Error('User not found');
-      }
-
+      const user = await this.getCurrentUserOrThrow();
       const userId = getUserId(user);
-      if (!userId) {
-        throw new Error('User ID not found');
-      }
 
-      const allItems = await this.getAllItems();
-      return allItems.filter(item => item.postedBy._id.toString() === userId.toString());
+      const response = await axios.get(`${API_URL}/items/user/${userId}`);
+      return response.data;
     } catch (error: any) {
       console.error('Get user items error:', error.response?.data || error);
       throw new Error(error.response?.data?.message || error.message || 'Failed to fetch user items');

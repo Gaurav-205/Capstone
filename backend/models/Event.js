@@ -11,7 +11,7 @@ const eventSchema = new mongoose.Schema({
     required: true
   },
   date: {
-    type: Date,
+    type: String,
     required: true
   },
   time: {
@@ -22,20 +22,43 @@ const eventSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  category: {
+  type: {
     type: String,
     required: true,
-    enum: ['Academic', 'Cultural', 'Sports', 'Technical', 'Other']
+    enum: ['academic', 'social', 'sports', 'cultural', 'other'],
+    default: 'other'
   },
-  organizer: {
+  // Multi-day event support
+  isMultiDay: {
+    type: Boolean,
+    default: false
+  },
+  startDate: {
+    type: String
+  },
+  endDate: {
+    type: String
+  },
+  startTime: {
+    type: String
+  },
+  endTime: {
+    type: String
+  },
+  imageUrl: {
+    type: String
+  },
+  registrationUrl: {
+    type: String
+  },
+  createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: 'User'
   },
   capacity: {
     type: Number,
-    required: true,
-    min: 1
+    min: 0,
+    default: 0
   },
   registeredParticipants: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -45,14 +68,6 @@ const eventSchema = new mongoose.Schema({
     type: String,
     enum: ['upcoming', 'ongoing', 'completed', 'cancelled'],
     default: 'upcoming'
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
   }
 }, {
   timestamps: true
@@ -60,18 +75,20 @@ const eventSchema = new mongoose.Schema({
 
 // Add index for efficient querying
 eventSchema.index({ date: 1, status: 1 });
-eventSchema.index({ category: 1 });
+eventSchema.index({ type: 1 });
 
 // Method to check if event is full
 eventSchema.methods.isFull = function() {
+  if (this.capacity === 0) return false; // Unlimited capacity
   return this.registeredParticipants.length >= this.capacity;
 };
 
 // Method to get available spots
 eventSchema.methods.getAvailableSpots = function() {
+  if (this.capacity === 0) return Infinity; // Unlimited capacity
   return this.capacity - this.registeredParticipants.length;
 };
 
 const Event = mongoose.model('Event', eventSchema);
 
-module.exports = Event; 
+module.exports = Event;
