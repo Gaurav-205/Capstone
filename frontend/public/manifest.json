@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "KampusKart",
+  "name": "KampusKart – Your Toolkit for College",
+  "description": "Find and explore campus facilities, manage lost & found items, view events, and more!",
   "icons": [
     {
       "src": "favicon.ico",
