@@ -14,6 +14,7 @@ import {
 import { Google as GoogleIcon, Visibility, VisibilityOff } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { styled, keyframes } from '@mui/material/styles';
+import { API_URL } from '../config';
 
 // Shake animation for error feedback
 const shakeAnimation = keyframes`
@@ -53,8 +54,7 @@ const Login = () => {
   // Handle Google login
   const handleGoogleLogin = () => {
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-      window.location.href = `${apiUrl}/auth/google`;
+      window.location.href = `${API_URL}/auth/google`;
     } catch (error) {
       setError('Failed to initiate Google login');
     }
@@ -105,13 +105,10 @@ const Login = () => {
     // Set loading state
     setIsLoading(true);
     
-    // Use the browser's fetch API directly
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-    
     console.log('Attempting direct fetch login with:', email);
     
     // Make login request using fetch instead of axios
-    fetch(`${apiUrl}/auth/login`, {
+    fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

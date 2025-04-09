@@ -1,44 +1,63 @@
 # KampusKart – Your Toolkit for College
 
-KampusKart is a comprehensive web application designed to enhance the college experience by providing essential tools and services for students. The platform offers features like Lost & Found, Campus Map, Mess Management, and more.
+A modern, vibrant web portal designed for the everyday needs of MIT ADT students, faculty, and visitors. It centralizes all critical campus resources into one seamless platform with a Gen-Z twist.
 
-## 🌟 Features
+## Features
 
-- **Lost & Found**: Report and track lost items on campus
-- **Campus Map**: Interactive map with building locations and directions
-- **Mess Management**: View menus, provide feedback, and manage meal preferences
-- **News & Events**: Stay updated with campus news and upcoming events
-- **Support System**: Get help with campus-related issues
-- **Feedback System**: Share your thoughts and suggestions
+- **User Authentication**
+  - Google OAuth integration
+  - JWT-based authentication
+  - Secure password management
 
-## 🚀 Live Demo
+- **Profile Management**
+  - Personal information management
+  - Academic details
+  - Profile picture upload
+  - Notification preferences
 
-- Frontend: [https://kampuskart.netlify.app](https://kampuskart.netlify.app)
-- Backend: [https://kampuskart.onrender.com](https://kampuskart.onrender.com)
+- **Hostel & Facilities**
+  - Hostel block information
+  - Room management
+  - Facility booking
 
-## 🛠️ Tech Stack
+- **Lost and Found**
+  - Item posting
+  - Search and filter capabilities
+  - Image upload for items
+  - Status tracking
+
+- **Feedback System**
+  - User feedback submission
+  - Rating system
+  - Admin feedback management
+
+## Tech Stack
 
 ### Frontend
-- React.js
-- TypeScript
-- Material-UI
-- Redux Toolkit
-- Axios
-- React Router
+- React.js with TypeScript
+- Material-UI for components
+- Context API for state management
+- Axios for API calls
 
 ### Backend
-- Node.js
-- Express.js
-- MongoDB
-- JWT Authentication
-- Multer (File Uploads)
+- Node.js with Express
+- MongoDB with Mongoose
+- JWT for authentication
+- Multer for file uploads
 
-## 📦 Installation
+## Getting Started
+
+### Prerequisites
+- Node.js (v14 or higher)
+- MongoDB
+- npm or yarn
+
+### Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/kampuskart.git
-cd kampuskart
+git clone https://github.com/yourusername/KampusKart.git
+cd KampusKart
 ```
 
 2. Install dependencies:
@@ -52,46 +71,74 @@ cd ../frontend
 npm install
 ```
 
-3. Set up environment variables:
-- Create `.env` files in both frontend and backend directories
-- Copy the contents from `.env.example` files
+3. Environment Setup:
 
-4. Start the development servers:
-```bash
-# Start backend server
-cd backend
-npm run dev
+Create `.env` files in both frontend and backend directories:
 
-# Start frontend server
-cd frontend
-npm start
+Frontend `.env`:
+```
+REACT_APP_API_URL=http://localhost:5000/api
+REACT_APP_FRONTEND_URL=http://localhost:3000
 ```
 
-## 🔧 Configuration
-
-### Frontend (.env)
-```
-REACT_APP_API_URL=https://kampuskart.onrender.com/api
-REACT_APP_FRONTEND_URL=https://kampuskart.netlify.app
-REACT_APP_DEBUG=false
-```
-
-### Backend (.env)
+Backend `.env`:
 ```
 PORT=5000
 MONGODB_URI=your_mongodb_uri
 JWT_SECRET=your_jwt_secret
-FRONTEND_URL=https://kampuskart.netlify.app
+GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
-## 📝 License
+4. Start the application:
+
+Backend:
+```bash
+cd backend
+npm start
+```
+
+Frontend:
+```bash
+cd frontend
+npm start
+```
+
+The application will be available at `http://localhost:3000`
+
+## Project Structure
+
+```
+ULife/
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── contexts/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── utils/
+│   └── public/
+└── backend/
+    ├── controllers/
+    ├── models/
+    ├── routes/
+    ├── middleware/
+    └── uploads/
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🤝 Contributing
+## Acknowledgments
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📞 Support
-
-For support, email support@kampuskart.com or open an issue in the repository. 
+- Material-UI for the beautiful components
+- Google OAuth for authentication
+- All contributors who have helped with the project 
