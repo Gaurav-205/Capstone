@@ -411,29 +411,23 @@ class AuthService {
       // Get user data
       const response = await this.getCurrentUser();
       if (response) {
-        // Ensure the user has a name property - use email username if name is missing
-        if (!response.name && response.email) {
-          console.log('Name missing in Google auth response, using email username instead');
-          response.name = response.email.split('@')[0];
-          // Capitalize first letter and replace dots/underscores with spaces
-          response.name = response.name
-            .charAt(0).toUpperCase() + response.name.slice(1)
-            .replace(/[._]/g, ' ');
-        }
-
-        this.user = response;
-        localStorage.setItem('user', JSON.stringify(response));
         return {
           success: true,
           token,
           user: response
         };
       }
-      throw new Error('Failed to get user data');
-    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to get user data'
+      };
+    } catch (error: any) {
       console.error('Google callback handling error:', error);
       this.clearAuth();
-      throw error;
+      return {
+        success: false,
+        message: error.message || 'Authentication failed'
+      };
     }
   }
 

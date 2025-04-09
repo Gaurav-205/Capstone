@@ -13,6 +13,13 @@ const {
 } = require('../controllers/auth.controller');
 const { isAuthenticated } = require('../middleware/auth');
 
+// Helper function to get frontend URL based on environment
+const getFrontendURL = () => {
+  return process.env.NODE_ENV === 'production' 
+    ? 'https://kampuskart.netlify.app'
+    : process.env.FRONTEND_URL_DEV || 'http://localhost:3000';
+};
+
 // Auth routes
 router.post('/signup', signup);
 router.post('/login', login);
@@ -40,18 +47,18 @@ router.get(
     passport.authenticate('google', (err, user, info) => {
       if (err) {
         console.error('Google auth error:', err);
-        return res.redirect(`${process.env.FRONTEND_URL_DEV}/login?error=auth_failed`);
+        return res.redirect(`${getFrontendURL()}/login?error=auth_failed`);
       }
 
       if (!user) {
         console.error('No user found in Google auth callback');
-        return res.redirect(`${process.env.FRONTEND_URL_DEV}/login?error=no_user_found`);
+        return res.redirect(`${getFrontendURL()}/login?error=no_user_found`);
       }
 
       req.logIn(user, async (loginErr) => {
         if (loginErr) {
           console.error('Login error:', loginErr);
-          return res.redirect(`${process.env.FRONTEND_URL_DEV}/login?error=login_failed`);
+          return res.redirect(`${getFrontendURL()}/login?error=login_failed`);
         }
 
         try {
@@ -61,14 +68,14 @@ router.get(
           });
 
           // Create redirect URL with token
-          const redirectURL = new URL(`${process.env.FRONTEND_URL_DEV}/auth/callback`);
+          const redirectURL = new URL(`${getFrontendURL()}/auth/callback`);
           redirectURL.searchParams.append('token', token);
           
           console.log('Google auth successful - Redirecting to:', redirectURL.toString());
           res.redirect(redirectURL.toString());
         } catch (error) {
           console.error('Token generation error:', error);
-          res.redirect(`${process.env.FRONTEND_URL_DEV}/login?error=auth_failed`);
+          res.redirect(`${getFrontendURL()}/login?error=auth_failed`);
         }
       });
     })(req, res, next);

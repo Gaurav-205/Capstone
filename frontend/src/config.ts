@@ -2,10 +2,10 @@
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 // Base URLs with environment variable overrides
-const PROD_API_URL = process.env.VITE_API_URL || 'https://kampuskart.onrender.com/api';
-const PROD_FRONTEND_URL = process.env.VITE_FRONTEND_URL || 'https://kampuskart.netlify.app';
-const DEV_API_URL = process.env.VITE_DEV_API_URL || 'http://localhost:5000/api';
-const DEV_FRONTEND_URL = process.env.VITE_DEV_FRONTEND_URL || 'http://localhost:3000';
+const PROD_API_URL = 'https://kampuskart.onrender.com/api';
+const PROD_FRONTEND_URL = 'https://kampuskart.netlify.app';
+const DEV_API_URL = 'http://localhost:5000/api';
+const DEV_FRONTEND_URL = 'http://localhost:3000';
 
 // Export URLs based on environment
 export const API_URL = isDevelopment ? DEV_API_URL : PROD_API_URL;

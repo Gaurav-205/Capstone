@@ -12,7 +12,7 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { Google as GoogleIcon, Visibility, VisibilityOff } from '@mui/icons-material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { styled, keyframes } from '@mui/material/styles';
 import { API_URL } from '../config';
 
@@ -29,6 +29,8 @@ const AnimatedTextField = styled(TextField)(({ theme, error }) => ({
 }));
 
 const Login = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -39,12 +41,29 @@ const Login = () => {
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   
-  // Clear redirects on mount
+  // Handle URL params on mount
   useEffect(() => {
-    if (window.location.search) {
-      window.history.replaceState({}, document.title, '/login');
+    const params = new URLSearchParams(location.search);
+    const errorParam = params.get('error');
+    
+    if (errorParam) {
+      switch (errorParam) {
+        case 'auth_failed':
+          setError('Authentication failed. Please try again.');
+          break;
+        case 'no_user_found':
+          setError('No user account found. Please sign up first.');
+          break;
+        case 'login_failed':
+          setError('Login failed. Please try again.');
+          break;
+        default:
+          setError('An error occurred. Please try again.');
+      }
+      // Clear the error from URL
+      navigate('/login', { replace: true });
     }
-  }, []);
+  }, [location, navigate]);
   
   // Toggle password visibility
   const handleTogglePasswordVisibility = () => {
@@ -54,9 +73,15 @@ const Login = () => {
   // Handle Google login
   const handleGoogleLogin = () => {
     try {
+      // Set loading state
+      setIsLoading(true);
+      setError('');
+      
+      // Redirect to Google OAuth endpoint
       window.location.href = `${API_URL}/auth/google`;
     } catch (error) {
       setError('Failed to initiate Google login');
+      setIsLoading(false);
     }
   };
   

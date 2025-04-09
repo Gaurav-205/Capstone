@@ -12,7 +12,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   updateUserState: (userData: Partial<User>) => void;
-  handleGoogleCallback: (token: string) => Promise<void>;
+  handleGoogleCallback: (token: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -130,7 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
-  const handleGoogleCallback = async (token: string) => {
+  const handleGoogleCallback = async (token: string): Promise<{ success: boolean; message?: string }> => {
     try {
       setLoading(true);
       const response = await authService.handleGoogleCallback(token);
@@ -194,16 +194,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (profileError) {
           console.error('Failed to fetch profile after Google login:', profileError);
         }
+
+        return { success: true };
       } else {
-        throw new Error('Failed to get user data from Google callback');
+        return {
+          success: false,
+          message: 'Failed to get user data from Google callback'
+        };
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Google callback error:', error);
       setUser(null);
       setIsAuthenticated(false);
       localStorage.removeItem('user');
       localStorage.removeItem('token');
-      throw error;
+      return {
+        success: false,
+        message: error.message || 'Authentication failed'
+      };
     } finally {
       setLoading(false);
     }
