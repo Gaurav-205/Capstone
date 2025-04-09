@@ -9,7 +9,9 @@ const {
   forgotPassword,
   resetPassword,
   getCurrentUser,
-  setPassword
+  setPassword,
+  requestPasswordReset,
+  verifyOTPAndResetPassword
 } = require('../controllers/auth.controller');
 const { isAuthenticated } = require('../middleware/auth');
 
@@ -23,8 +25,13 @@ const getFrontendURL = () => {
 // Auth routes
 router.post('/signup', signup);
 router.post('/login', login);
-router.post('/forgot-password', forgotPassword);
-router.put('/reset-password/:resetToken', resetPassword);
+
+// Password reset routes
+router.post('/forgot-password', forgotPassword); // Legacy method
+router.put('/reset-password/:token', resetPassword); // Legacy method
+router.post('/reset-password/request', requestPasswordReset); // New OTP-based method
+router.post('/reset-password/verify', verifyOTPAndResetPassword); // New OTP-based method
+
 router.get('/me', protect, getCurrentUser);
 router.post('/set-password', isAuthenticated, setPassword);
 

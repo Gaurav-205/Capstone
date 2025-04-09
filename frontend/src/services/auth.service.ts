@@ -99,6 +99,27 @@ export interface User {
   hasSetPassword: boolean;
 }
 
+export interface PasswordResetRequestResponse {
+  success: boolean;
+  message: string;
+  expiresIn?: number;
+  devModeOtp?: string;
+  errors?: {
+    [key: string]: string;
+  };
+}
+
+export interface PasswordResetVerifyResponse {
+  success: boolean;
+  message: string;
+  token?: string;
+  user?: any;
+  attemptsLeft?: number;
+  errors?: {
+    [key: string]: string;
+  };
+}
+
 class AuthService {
   private static instance: AuthService;
   private token: string | null = null;
@@ -685,6 +706,60 @@ class AuthService {
         }
       }
       throw new Error('Network error. Please check your internet connection and try again.');
+    }
+  }
+
+  public async requestPasswordReset(email: string): Promise<PasswordResetRequestResponse> {
+    try {
+      const response = await axios.post<PasswordResetRequestResponse>(
+        `${API_URL}/auth/reset-password/request`,
+        { email }
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response && error.response.data) {
+        return error.response.data;
+      }
+      return {
+        success: false,
+        message: error.message || 'Failed to request password reset'
+      };
+    }
+  }
+
+  public async verifyOTPAndResetPassword(
+    email: string,
+    otp: string,
+    newPassword: string
+  ): Promise<PasswordResetVerifyResponse> {
+    try {
+      const response = await axios.post<PasswordResetVerifyResponse>(
+        `${API_URL}/auth/reset-password/verify`,
+        { email, otp, newPassword }
+      );
+
+      if (response.data.success && response.data.token) {
+        // Store the token
+        this.token = response.data.token;
+        localStorage.setItem('token', response.data.token);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+
+        // Store the user data
+        if (response.data.user) {
+          this.user = response.data.user;
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+        }
+      }
+
+      return response.data;
+    } catch (error: any) {
+      if (error.response && error.response.data) {
+        return error.response.data;
+      }
+      return {
+        success: false,
+        message: error.message || 'Failed to verify OTP or reset password'
+      };
     }
   }
 }
