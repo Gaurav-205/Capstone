@@ -31,6 +31,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import profileService from '../services/profileService';
 import { getAvatarUrl } from '../utils/avatarUtils';
+import axios from 'axios';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -104,6 +105,8 @@ const Profile: React.FC = () => {
   const [message, setMessage] = useState({ type: 'success', text: '' });
   const [showMessage, setShowMessage] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSocialLogin, setIsSocialLogin] = useState(false);
 
   console.log('Profile component rendering', { 
     user, 
@@ -140,19 +143,12 @@ const Profile: React.FC = () => {
     confirmPassword: '',
   });
 
-  // Force refresh profile data on initial render
+  // Load initial data
   useEffect(() => {
     const loadInitialData = async () => {
-      console.log('Initial profile data load');
       try {
         setLoading(true);
-        
-        // Force refresh profile data from server
-        await profileService.refreshProfile();
-        
-        // Load complete profile data
         await loadProfile();
-        
         setInitialLoadComplete(true);
       } catch (error) {
         console.error('Initial profile data load failed:', error);
@@ -164,76 +160,37 @@ const Profile: React.FC = () => {
     loadInitialData();
   }, []);
 
-  // Update form data when user changes
+  // Check if user is a social login user
   useEffect(() => {
     if (user) {
-      console.log('User updated, updating form data with new user data:', user);
-      setFormData(prev => ({
-        ...prev,
-        name: user.name || prev.name,
-        email: user.email || prev.email,
-        phone: user.phone || prev.phone,
-        avatar: user.avatar || prev.avatar,
-        studentId: user.studentId || prev.studentId,
-      }));
+      setIsSocialLogin(!user.hasSetPassword);
     }
   }, [user]);
 
-  useEffect(() => {
-    // If we have a user with an avatar, make sure to update form data
-    if (user?.avatar) {
-      console.log('User avatar found on component mount, updating form data:', user.avatar);
-      const avatarString: string = user.avatar; // Type assertion
-      setFormData(prev => ({
-        ...prev,
-        avatar: avatarString
-      }));
-    }
-  }, []);
-
   const loadProfile = async () => {
     try {
-      console.log('Loading profile...');
-      setLoading(true);
       const profile = await profileService.getProfile();
-      console.log('Received profile:', profile);
-      
-      // Make sure we're using the latest avatar from either source
-      const avatarToUse = profile.avatar || user?.avatar || '';
-      console.log('Using avatar:', avatarToUse);
-      
-      setFormData(prev => {
-        const newData = {
-          ...prev,
-          name: profile.name || user?.name || '',
-          email: profile.email || user?.email || '',
-          phone: profile.phone || user?.phone || '',
-          avatar: avatarToUse,
-          dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth).toISOString().split('T')[0] : '',
-          gender: profile.gender || '',
-          studentId: profile.studentId || '',
-          course: profile.course || '',
-          semester: profile.semester || '',
-          batch: profile.batch || '',
-          hostelBlock: profile.hostelBlock || '',
-          roomNumber: profile.roomNumber || '',
-          emailNotifications: profile.notificationPreferences?.email ?? true,
-          smsNotifications: profile.notificationPreferences?.sms ?? true,
-          pushNotifications: profile.notificationPreferences?.push ?? true,
-        };
-        console.log('Updated form data:', newData);
-        return newData;
-      });
-      
-      // If we got a new avatar from the profile service, update the auth context
-      if (profile.avatar && profile.avatar !== user?.avatar) {
-        updateUserState({ avatar: profile.avatar });
-      }
+      setFormData(prev => ({
+        ...prev,
+        name: profile.name || user?.name || '',
+        email: profile.email || user?.email || '',
+        phone: profile.phone || user?.phone || '',
+        avatar: profile.avatar || user?.avatar || '',
+        dateOfBirth: profile.dateOfBirth ? new Date(profile.dateOfBirth).toISOString().split('T')[0] : '',
+        gender: profile.gender || '',
+        studentId: profile.studentId || '',
+        course: profile.course || '',
+        semester: profile.semester || '',
+        batch: profile.batch || '',
+        hostelBlock: profile.hostelBlock || '',
+        roomNumber: profile.roomNumber || '',
+        emailNotifications: profile.notificationPreferences?.email ?? true,
+        smsNotifications: profile.notificationPreferences?.sms ?? true,
+        pushNotifications: profile.notificationPreferences?.push ?? true,
+      }));
     } catch (error: unknown) {
       console.error('Error loading profile:', error);
       setError(handleApiError(error));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -243,6 +200,7 @@ const Profile: React.FC = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+    setHasUnsavedChanges(true);
   };
 
   const handleSelectChange = (e: any) => {
@@ -250,6 +208,7 @@ const Profile: React.FC = () => {
       ...prev,
       [e.target.name]: e.target.value,
     }));
+    setHasUnsavedChanges(true);
   };
 
   const handleAvatarClick = () => {
@@ -262,20 +221,11 @@ const Profile: React.FC = () => {
       try {
         setLoading(true);
         const response = await profileService.uploadAvatar(file);
-        console.log('Avatar upload response:', response);
-        
-        // Extract the avatar path
-        const avatarPath = response.avatar;
-        console.log('Avatar path received:', avatarPath);
-        
-        // Update the form data with the new avatar
-        setFormData(prev => ({ ...prev, avatar: avatarPath }));
-        
-        // Update auth context with new avatar
-        updateUserState({ avatar: avatarPath });
-        
+        setFormData(prev => ({ ...prev, avatar: response.avatar }));
+        updateUserState({ avatar: response.avatar });
         setMessage({ type: 'success', text: 'Profile picture updated successfully!' });
         setShowMessage(true);
+        setHasUnsavedChanges(true);
       } catch (error) {
         console.error('Avatar upload error:', error);
         setMessage({ type: 'error', text: 'Failed to update profile picture' });
@@ -286,28 +236,29 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-    
-    // When navigating to the personal tab (index 0), refresh the avatar from user context
-    if (newValue === 0 && user?.avatar) {
-      const avatarString: string = user.avatar; // Type assertion
-      setFormData(prev => ({
-        ...prev,
-        avatar: avatarString
-      }));
-    }
-  };
-
   const validateForm = () => {
-    if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      setError('New passwords do not match');
-      return false;
-    }
-    
-    if (formData.newPassword && !formData.currentPassword) {
-      setError('Current password is required to set a new password');
-      return false;
+    // Password validation
+    if (formData.newPassword) {
+      if (formData.newPassword.length < 8) {
+        setError('New password must be at least 8 characters long');
+        return false;
+      }
+      
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      if (!passwordRegex.test(formData.newPassword)) {
+        setError('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)');
+        return false;
+      }
+      
+      if (formData.newPassword !== formData.confirmPassword) {
+        setError('New passwords do not match');
+        return false;
+      }
+      
+      if (!formData.currentPassword) {
+        setError('Current password is required to set a new password');
+        return false;
+      }
     }
 
     if (formData.phone && !/^\+?[\d\s-]{10,}$/.test(formData.phone)) {
@@ -328,6 +279,7 @@ const Profile: React.FC = () => {
 
     try {
       if (tabValue === 3 && formData.newPassword) {
+        // Handle password change separately
         await profileService.changePassword({
           currentPassword: formData.currentPassword,
           newPassword: formData.newPassword,
@@ -339,7 +291,9 @@ const Profile: React.FC = () => {
           newPassword: '',
           confirmPassword: '',
         }));
+        setHasUnsavedChanges(false);
       } else {
+        // Handle profile update
         const updatedProfile = await profileService.updateProfile({
           name: formData.name,
           phone: formData.phone,
@@ -355,14 +309,25 @@ const Profile: React.FC = () => {
           smsNotifications: formData.smsNotifications,
           pushNotifications: formData.pushNotifications,
         });
-        // Update auth context with new profile data
         updateUserState(updatedProfile);
         setSuccess('Profile updated successfully');
+        setHasUnsavedChanges(false);
       }
     } catch (error: unknown) {
       setError(handleApiError(error));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    if (hasUnsavedChanges) {
+      if (window.confirm('You have unsaved changes. Are you sure you want to switch tabs?')) {
+        setTabValue(newValue);
+        setHasUnsavedChanges(false);
+      }
+    } else {
+      setTabValue(newValue);
     }
   };
 
@@ -603,50 +568,237 @@ const Profile: React.FC = () => {
                 <Typography variant="h6" gutterBottom>
                   Change Password
                 </Typography>
+                {isSocialLogin ? (
+                  <Alert severity="info" sx={{ mb: 3 }}>
+                    You logged in using a social account (like Google). Please set up a password first.
+                    <Box sx={{ mt: 2 }}>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={async () => {
+                          // Validate password
+                          if (!formData.newPassword) {
+                            setError('New password is required');
+                            return;
+                          }
+
+                          if (formData.newPassword.length < 8) {
+                            setError('New password must be at least 8 characters long');
+                            return;
+                          }
+                          
+                          const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+                          if (!passwordRegex.test(formData.newPassword)) {
+                            setError('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)');
+                            return;
+                          }
+                          
+                          if (formData.newPassword !== formData.confirmPassword) {
+                            setError('New passwords do not match');
+                            return;
+                          }
+                          
+                          setLoading(true);
+                          setError('');
+                          setSuccess('');
+                          
+                          try {
+                            const response = await axios.post(
+                              `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/auth/set-password`,
+                              {
+                                password: formData.newPassword.trim()
+                              },
+                              {
+                                headers: {
+                                  'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                  'Content-Type': 'application/json'
+                                }
+                              }
+                            );
+                            
+                            setSuccess('Password set successfully');
+                            setIsSocialLogin(false);
+                            setFormData(prev => ({
+                              ...prev,
+                              currentPassword: '',
+                              newPassword: '',
+                              confirmPassword: '',
+                            }));
+                          } catch (error: unknown) {
+                            console.error('Set password error:', error);
+                            setError(handleApiError(error));
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={loading || !formData.newPassword || !formData.confirmPassword}
+                      >
+                        {loading ? <CircularProgress size={24} /> : 'Set Password'}
+                      </Button>
+                    </Box>
+                  </Alert>
+                ) : (
+                  <>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Password must be at least 8 characters long and contain:
+                    </Typography>
+                    <Box component="ul" sx={{ pl: 2, mb: 2 }}>
+                      <Typography component="li" variant="body2" color="text.secondary">
+                        At least one uppercase letter
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary">
+                        At least one lowercase letter
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary">
+                        At least one number
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary">
+                        At least one special character (@$!%*?&)
+                      </Typography>
+                    </Box>
+                  </>
+                )}
               </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Current Password"
-                  name="currentPassword"
-                  type="password"
-                  value={formData.currentPassword}
-                  onChange={handleChange}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="New Password"
-                  name="newPassword"
-                  type="password"
-                  value={formData.newPassword}
-                  onChange={handleChange}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Confirm New Password"
-                  name="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                />
-              </Grid>
+              {!isSocialLogin && (
+                <>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      label="Current Password"
+                      name="currentPassword"
+                      type="password"
+                      value={formData.currentPassword}
+                      onChange={handleChange}
+                      required
+                      error={!!error && error.includes('Current password')}
+                      helperText={error && error.includes('Current password') ? error : ''}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      label="New Password"
+                      name="newPassword"
+                      type="password"
+                      value={formData.newPassword}
+                      onChange={handleChange}
+                      required
+                      error={!!error && (error.includes('New password') || error.includes('Password must contain'))}
+                      helperText={error && (error.includes('New password') || error.includes('Password must contain')) ? error : ''}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField
+                      fullWidth
+                      label="Confirm New Password"
+                      name="confirmPassword"
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      required
+                      error={!!error && error.includes('passwords do not match')}
+                      helperText={error && error.includes('passwords do not match') ? error : ''}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={async () => {
+                        // Validate password
+                        if (!formData.currentPassword) {
+                          setError('Current password is required');
+                          return;
+                        }
+
+                        if (!formData.newPassword) {
+                          setError('New password is required');
+                          return;
+                        }
+
+                        if (formData.newPassword.length < 8) {
+                          setError('New password must be at least 8 characters long');
+                          return;
+                        }
+                        
+                        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+                        if (!passwordRegex.test(formData.newPassword)) {
+                          setError('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)');
+                          return;
+                        }
+                        
+                        if (formData.newPassword !== formData.confirmPassword) {
+                          setError('New passwords do not match');
+                          return;
+                        }
+                        
+                        setLoading(true);
+                        setError('');
+                        setSuccess('');
+                        
+                        try {
+                          const passwordData = {
+                            currentPassword: formData.currentPassword.trim(),
+                            newPassword: formData.newPassword.trim()
+                          };
+                          
+                          console.log('Sending password change request with data:', {
+                            currentPassword: passwordData.currentPassword ? '***' : 'undefined',
+                            newPassword: passwordData.newPassword ? '***' : 'undefined'
+                          });
+
+                          await profileService.changePassword(passwordData);
+                          setSuccess('Password updated successfully');
+                          setFormData(prev => ({
+                            ...prev,
+                            currentPassword: '',
+                            newPassword: '',
+                            confirmPassword: '',
+                          }));
+                        } catch (error: unknown) {
+                          console.error('Password change error:', error);
+                          setError(handleApiError(error));
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      disabled={loading || !formData.currentPassword || !formData.newPassword || !formData.confirmPassword}
+                      sx={{ minWidth: 200 }}
+                    >
+                      {loading ? <CircularProgress size={24} /> : 'Change Password'}
+                    </Button>
+                  </Grid>
+                </>
+              )}
             </Grid>
           </TabPanel>
 
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              disabled={loading}
-              sx={{ minWidth: 200 }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Save Changes'}
-            </Button>
+          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+            {hasUnsavedChanges && tabValue !== 3 && (
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to discard changes?')) {
+                    loadProfile();
+                    setHasUnsavedChanges(false);
+                  }
+                }}
+              >
+                Discard Changes
+              </Button>
+            )}
+            {tabValue !== 3 && (
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={loading || !hasUnsavedChanges}
+                sx={{ minWidth: 200 }}
+              >
+                {loading ? <CircularProgress size={24} /> : 'Save Changes'}
+              </Button>
+            )}
           </Box>
         </form>
       </Paper>

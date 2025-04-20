@@ -150,26 +150,100 @@ exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
+    // Validate inputs
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Current password and new password are required',
+        errors: {
+          validation: 'All fields are required'
+        }
+      });
+    }
+
+    // Password validation
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is too short',
+        errors: {
+          password: 'Password must be at least 8 characters long'
+        }
+      });
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password does not meet requirements',
+        errors: {
+          password: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)'
+        }
+      });
+    }
+
     const user = await User.findById(req.user.id);
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found',
+        errors: {
+          user: 'User account not found'
+        }
+      });
+    }
+
+    // Check if user has a password (for social login users)
+    if (!user.password) {
+      return res.status(400).json({
+        success: false,
+        message: 'No password set for this account',
+        errors: {
+          password: 'This account uses social login. Please set a password first.'
+        }
+      });
     }
 
     // Check current password
-    if (user.password) {
-      const isMatch = await user.comparePassword(currentPassword);
-      if (!isMatch) {
-        return res.status(400).json({ message: 'Current password is incorrect' });
-      }
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Current password is incorrect',
+        errors: {
+          currentPassword: 'The password you entered is incorrect'
+        }
+      });
+    }
+
+    // Check if new password is same as current password
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be different from current password',
+        errors: {
+          newPassword: 'Please choose a different password'
+        }
+      });
     }
 
     // Update password
     user.password = newPassword;
     await user.save();
 
-    res.json({ message: 'Password updated successfully' });
+    res.json({ 
+      success: true,
+      message: 'Password updated successfully'
+    });
   } catch (error) {
     console.error('Error in changePassword:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error',
+      errors: {
+        server: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      }
+    });
   }
 }; 

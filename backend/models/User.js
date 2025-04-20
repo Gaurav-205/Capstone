@@ -18,15 +18,11 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     enum: ['admin', 'user', 'student'],
-    default: function() {
-      return (this.email === 'gauravkhandelwal205@gmail.com' || this.email === 'khandelwalgaurav566@gmail.com') ? 'admin' : 'user';
-    }
+    default: 'user'
   },
   isAdmin: {
     type: Boolean,
-    default: function() {
-      return (this.email === 'gauravkhandelwal205@gmail.com' || this.email === 'khandelwalgaurav566@gmail.com');
-    }
+    default: false
   },
   name: {
     type: String,
@@ -40,10 +36,19 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    default: ''
+    default: '',
+    match: [/^[0-9]{10}$/, 'Please enter a valid 10-digit phone number']
   },
   dateOfBirth: {
-    type: Date
+    type: Date,
+    validate: {
+      validator: function(value) {
+        if (!value) return true;
+        const age = new Date().getFullYear() - new Date(value).getFullYear();
+        return age >= 13;
+      },
+      message: 'User must be at least 13 years old'
+    }
   },
   gender: {
     type: String,
@@ -53,22 +58,42 @@ const userSchema = new mongoose.Schema({
   studentId: {
     type: String,
     unique: true,
-    sparse: true
+    sparse: true,
+    match: [/^[A-Z0-9]{8,}$/, 'Please enter a valid student ID']
   },
   course: {
-    type: String
+    type: String,
+    enum: ['B.Tech', 'M.Tech', 'B.Sc', 'M.Sc', 'BBA', 'MBA', 'PhD', 'Other']
   },
   semester: {
-    type: String
+    type: Number,
+    min: 1,
+    max: 8
   },
   batch: {
-    type: String
+    type: String,
+    match: [/^[0-9]{4}$/, 'Please enter a valid batch year']
   },
   hostelBlock: {
-    type: String
+    type: String,
+    match: [/^[A-Z][0-9]{1,2}$/, 'Please enter a valid hostel block']
   },
   roomNumber: {
-    type: String
+    type: String,
+    match: [/^[0-9]{3}$/, 'Please enter a valid room number']
+  },
+  // Account Status
+  isBlocked: {
+    type: Boolean,
+    default: false
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  lastLogin: {
+    type: Date,
+    default: Date.now
   },
   // Notification Preferences
   notificationPreferences: {
@@ -88,18 +113,13 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: function() {
-      // Only require password for non-Google users
       return !this.googleId;
     },
     minlength: [8, 'Password must be at least 8 characters long'],
     select: false,
     validate: {
       validator: function(value) {
-        // Only validate password if it's being modified or it's a new user without googleId
         if ((this.isModified('password') || this.isNew) && !this.googleId) {
-          // Skip validation if this is a Google user
-          if (this.googleId) return true;
-          
           const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
           return passwordRegex.test(value);
         }
@@ -112,7 +132,7 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  // Password Reset & OTP fields
+  // Security fields
   resetPasswordToken: {
     type: String
   },
@@ -132,16 +152,24 @@ const userSchema = new mongoose.Schema({
   otpLockUntil: {
     type: Date
   },
-  picture: {
-    type: String
+  // Activity tracking
+  loginAttempts: {
+    type: Number,
+    default: 0
   },
-  createdAt: {
+  lockUntil: {
+    type: Date
+  },
+  lastPasswordChange: {
     type: Date,
     default: Date.now
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+  // Profile completion
+  profileCompletion: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
   }
 }, {
   timestamps: true
@@ -150,19 +178,25 @@ const userSchema = new mongoose.Schema({
 // Hash password before saving
 userSchema.pre('save', async function(next) {
   try {
-    // Only hash the password if it has been modified (or is new)
     if (!this.isModified('password')) {
       return next();
     }
 
-    // Generate salt and hash password
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     
-    // Set hasSetPassword to true if password exists
     if (this.password) {
       this.hasSetPassword = true;
+      this.lastPasswordChange = new Date();
     }
+
+    // Calculate profile completion
+    let completion = 0;
+    const fields = ['name', 'email', 'phone', 'dateOfBirth', 'gender', 'studentId', 'course', 'semester', 'batch', 'hostelBlock', 'roomNumber'];
+    fields.forEach(field => {
+      if (this[field]) completion += 100 / fields.length;
+    });
+    this.profileCompletion = Math.round(completion);
 
     next();
   } catch (error) {
@@ -174,11 +208,23 @@ userSchema.pre('save', async function(next) {
 userSchema.methods.comparePassword = async function(candidatePassword) {
   try {
     if (!this.password) {
+      console.error('Password comparison failed: No password set for user');
       throw new Error('Password not set for this user');
     }
-    return await bcrypt.compare(candidatePassword, this.password);
+    
+    if (!candidatePassword) {
+      console.error('Password comparison failed: No candidate password provided');
+      throw new Error('No password provided for comparison');
+    }
+
+    console.log('Comparing passwords...');
+    const isMatch = await bcrypt.compare(candidatePassword, this.password);
+    console.log('Password comparison result:', isMatch);
+    
+    return isMatch;
   } catch (error) {
-    throw new Error('Password comparison failed');
+    console.error('Password comparison error:', error);
+    throw new Error('Password comparison failed: ' + error.message);
   }
 };
 
@@ -187,7 +233,36 @@ userSchema.methods.getPublicProfile = function() {
   const userObject = this.toObject();
   delete userObject.password;
   delete userObject.googleId;
+  delete userObject.resetPasswordToken;
+  delete userObject.resetPasswordExpires;
+  delete userObject.passwordOtp;
+  delete userObject.passwordOtpExpires;
+  delete userObject.otpAttempts;
+  delete userObject.otpLockUntil;
+  delete userObject.loginAttempts;
+  delete userObject.lockUntil;
   return userObject;
+};
+
+// Method to check if account is locked
+userSchema.methods.isLocked = function() {
+  return this.lockUntil && this.lockUntil > Date.now();
+};
+
+// Method to increment login attempts
+userSchema.methods.incrementLoginAttempts = async function() {
+  this.loginAttempts += 1;
+  if (this.loginAttempts >= 5) {
+    this.lockUntil = new Date(Date.now() + 30 * 60 * 1000); // Lock for 30 minutes
+  }
+  await this.save();
+};
+
+// Method to reset login attempts
+userSchema.methods.resetLoginAttempts = async function() {
+  this.loginAttempts = 0;
+  this.lockUntil = undefined;
+  await this.save();
 };
 
 module.exports = mongoose.model('User', userSchema); 

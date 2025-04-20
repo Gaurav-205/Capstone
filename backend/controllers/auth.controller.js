@@ -326,6 +326,18 @@ exports.login = async (req, res) => {
     console.log('Server: Starting login process');
     const { email, password } = req.body;
 
+    // Check for JWT_SECRET
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not set in environment variables');
+      return res.status(500).json({
+        success: false,
+        message: 'Server configuration error',
+        errors: {
+          server: 'Authentication service is not properly configured'
+        }
+      });
+    }
+
     // Validate required fields with more detailed errors
     if (!email && !password) {
       console.log('Server: Missing email and password');
@@ -361,9 +373,10 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check if user exists
+    // Check if user exists and explicitly select the password field
     console.log('Server: Finding user by email:', email);
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    
     if (!user) {
       console.log('Server: No account found with email:', email);
       return res.status(401).json({
@@ -375,8 +388,20 @@ exports.login = async (req, res) => {
       });
     }
 
+    // Check if user is blocked
+    if (user.isBlocked) {
+      console.log('Server: User is blocked:', email);
+      return res.status(403).json({
+        success: false,
+        message: 'Account blocked',
+        errors: {
+          account: 'Your account has been blocked. Please contact support.'
+        }
+      });
+    }
+
     // Check if user has set a password
-    if (!user.hasSetPassword) {
+    if (!user.password) {
       console.log('Server: Password not set for user:', email);
       return res.status(401).json({
         success: false,
@@ -389,17 +414,49 @@ exports.login = async (req, res) => {
 
     // Check password
     console.log('Server: Verifying password for user:', email);
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      console.log('Server: Incorrect password for user:', email);
-      return res.status(401).json({
+    try {
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        console.log('Server: Incorrect password for user:', email);
+        
+        // Increment login attempts
+        await user.incrementLoginAttempts();
+        
+        // Check if account should be locked
+        if (user.isLocked()) {
+          return res.status(423).json({
+            success: false,
+            message: 'Account locked',
+            errors: {
+              account: 'Too many failed attempts. Account locked for 30 minutes.'
+            }
+          });
+        }
+        
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials',
+          errors: {
+            password: 'Incorrect password'
+          }
+        });
+      }
+    } catch (passwordError) {
+      console.error('Password comparison error:', passwordError);
+      return res.status(500).json({
         success: false,
-        message: 'Invalid credentials',
+        message: 'Error verifying password',
         errors: {
-          password: 'Incorrect password'
+          server: 'Failed to verify password'
         }
       });
     }
+
+    // Reset login attempts on successful login
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    user.lastLogin = new Date();
+    await user.save();
 
     // Set admin role for specific emails
     if (email === 'gauravkhandelwal205@gmail.com' || email === 'khandelwalgaurav566@gmail.com') {
@@ -428,6 +485,7 @@ exports.login = async (req, res) => {
     });
   } catch (error) {
     console.error('Server: Login error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Server error during login',

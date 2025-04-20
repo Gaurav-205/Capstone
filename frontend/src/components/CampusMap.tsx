@@ -91,166 +91,7 @@ const MAP_STYLES = [
 ];
 
 // Enhanced locations data for MIT ADT University
-const locations: MapLocation[] = [
-  {
-    id: 'world-peace-dome',
-    name: 'World Peace Dome',
-    type: 'landmark',
-    coordinates: [74.02553149122912, 18.492462959666025],
-    description: 'The World Peace Dome at MIT-ADT University is a magnificent architectural marvel dedicated to promoting peace and harmony.',
-    icon: <Church sx={{ color: '#5E35B1' }} />,
-    details: {
-      contact: {
-        phone: '+91 83800 23755',
-        email: 'director.wpd@worldpeacedome.in',
-        website: 'worldpeacedome.in'
-      },
-      timings: '10:00 AM - 7:00 PM',
-      facilities: [
-        'World Peace Prayer Hall',
-        'Bronze Statue Gallery',
-        'World Peace Library',
-        'Meditation Area',
-        'Conference Hall',
-        'Exhibition Space',
-        'Cultural Center'
-      ],
-      rating: 4.4,
-      reviews: 665,
-      capacity: 3000,
-      services: [
-        { name: 'Guided Tours', available: true },
-        { name: 'Prayer Services', available: true },
-        { name: 'Meditation Sessions', available: true },
-        { name: 'Library Access', available: true }
-      ]
-    },
-    address: 'Railway station, Vishwarajbaug, MIT-ADT University Campus, Solapur Rd, Loni Kalbhor, Maharashtra 412201',
-    admissionFees: {
-      adult: 100,
-      child: 50,
-      infant: 0
-    }
-  },
-  {
-    id: 'sports-complex',
-    name: 'MIT ADT Sports Complex',
-    type: 'sports',
-    coordinates: [74.02844225141602, 18.4917779125069],
-    description: 'A comprehensive sports facility offering various indoor and outdoor activities for students, faculty, and registered members.',
-    icon: <SportsSoccer sx={{ color: '#880E4F' }} />,
-    details: {
-      timings: '6:00 AM - 9:00 PM',
-      facilities: [
-        'Swimming Pool',
-        'Football Ground',
-        'Cricket Nets & Ground',
-        'Badminton Courts',
-        'Tennis Courts',
-        'Gym & Fitness Center',
-        'Running Track'
-      ],
-      rating: 4.5,
-      reviews: 99,
-      membership: {
-        categories: ['MIT ADT University students', 'Faculty', 'Registered members'],
-        access: [
-          {
-            type: 'Student Access',
-            requirements: 'Valid student ID required'
-          },
-          {
-            type: 'Faculty Access',
-            requirements: 'Faculty ID required'
-          },
-          {
-            type: 'Guest Access',
-            requirements: 'Prior approval required'
-          }
-        ]
-      },
-      features: {
-        highlights: [
-          'Olympic-sized Swimming Pool',
-          'Professional Football Ground',
-          'Multi-purpose Courts',
-          'Modern Fitness Center'
-        ],
-        amenities: [
-          'Changing Rooms',
-          'Lockers',
-          'Equipment Rental',
-          'First Aid Station',
-          'Water Dispensers'
-        ]
-      }
-    },
-    address: 'F2RJ+WFV, MAEER MIT\'S Swimming Pool, Unnamed Road, Loni Kalbhor, Maharashtra 412201'
-  },
-  {
-    id: 'serenity-restaurant',
-    name: 'Serenity - Multicuisine Restaurant',
-    type: 'food',
-    coordinates: [74.02749795999576, 18.49198394522407],
-    description: 'A vibrant multicuisine restaurant offering a diverse menu in an airy, casual dining atmosphere.',
-    icon: <Restaurant sx={{ color: '#C2185B' }} />,
-    details: {
-      timings: '9:00 AM - 10:00 PM',
-      rating: 4.1,
-      reviews: 211,
-      services: [
-        { name: 'Dine-in', available: true },
-        { name: 'Drive-through', available: true },
-        { name: 'No-contact delivery', available: true }
-      ],
-      specialties: {
-        popular: [
-          'Pizza',
-          'Steamed Dumplings (Momos)',
-          'Sandwiches',
-          'Mocktails'
-        ],
-        customerFavorites: [
-          'Paneer Dishes',
-          'Pizza Margherita',
-          'Ice Cream'
-        ],
-        ambience: [
-          'Airy Space',
-          'Casual Dining',
-          'Modern Decor'
-        ]
-      },
-      facilities: [
-        'Air Conditioning',
-        'Outdoor Seating',
-        'Private Dining Area',
-        'Wheelchair Accessible',
-        'Free Wi-Fi'
-      ]
-    },
-    address: 'MIT CAMPUS, RAJBAUG, near Vishwaraj Hospital, Loni Kalbhor, Maharashtra 412201'
-  },
-  {
-    id: 'shivaji-statue',
-    name: 'Chatrapati Shivaji Maharaj Statue',
-    type: 'landmark',
-    coordinates: [74.02539744285934, 18.49052554616454],
-    description: 'A historical and cultural landmark dedicated to the legendary Maratha ruler, Chhatrapati Shivaji Maharaj, symbolizing bravery and leadership.',
-    icon: <Museum sx={{ color: '#5E35B1' }} />,
-    details: {
-      rating: 4.8,
-      reviews: 5,
-      facilities: [
-        'Historical Monument',
-        'Cultural Heritage Site',
-        'Tourist Attraction',
-        'Open Space for Visitors'
-      ]
-    },
-    address: 'F2RG+54Q, MIT Institute of Design Rd, Loni Kalbhor, Maharashtra 412201'
-  }
-];
+const locations: MapLocation[] = []; // Empty array to remove all markers
 
 // Update location types with more categories
 const LOCATION_TYPES = [
@@ -362,7 +203,7 @@ const CampusMap: React.FC = () => {
 
   // Optimized marker rendering
   const visibleMarkers = useMemo(() => {
-    if (!mapRef.current) return locations; // Return all locations if map is not ready
+    if (!mapRef.current) return []; // Return empty array if map is not ready
 
     try {
       const viewport = {
@@ -379,10 +220,10 @@ const CampusMap: React.FC = () => {
       const filtered = filterVisibleMarkers(locations, viewport, viewState.zoom);
       const clustered = clusterMarkers(filtered, viewport, viewState.zoom);
       
-      return clustered.length > 0 ? clustered : locations; // Return all locations if no markers are visible
+      return clustered; // Return empty array since locations is empty
     } catch (error) {
       console.error('Error getting map bounds:', error);
-      return locations; // Return all locations on error
+      return []; // Return empty array on error
     }
   }, [locations, viewState.zoom, viewState.latitude, viewState.longitude]);
 

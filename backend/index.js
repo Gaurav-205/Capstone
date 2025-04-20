@@ -34,8 +34,25 @@ if (!fs.existsSync(uploadsDir)) {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
+
+// CORS configuration
+const allowedOrigins = process.env.CORS_ORIGINS?.split(',') || [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'https://kampuskart.netlify.app'
+];
+
 app.use(cors({
-  origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001'],
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -47,10 +64,12 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.COOKIE_SECURE === 'true',
     httpOnly: true,
+    sameSite: process.env.COOKIE_SAMESITE || 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+  },
+  name: 'kampuskart.sid' // Custom session name for security
 }));
 
 // Initialize passport and session
@@ -73,6 +92,7 @@ const eventRoutes = require('./routes/eventRoutes');
 const locationRoutes = require('./routes/location.routes');
 const supportRoutes = require('./routes/supportRoutes');
 const newsRoutes = require('./routes/newsRoutes');
+const userRoutes = require('./routes/user.routes');
 
 // Use routes
 app.use('/api/auth', authRoutes);
@@ -87,6 +107,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/users', userRoutes);
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)

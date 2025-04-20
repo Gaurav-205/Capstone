@@ -100,14 +100,45 @@ const profileService = {
   // Change password
   changePassword: async (data: PasswordChangeData) => {
     try {
+      console.log('Attempting password change with data:', {
+        currentPassword: data.currentPassword ? '***' : 'undefined',
+        newPassword: data.newPassword ? '***' : 'undefined'
+      });
+
       const response = await axios.post(
-        `${API_URL}/profile/change-password/`,
-        data,
-        getAuthConfig()
+        `${API_URL}/profile/change-password`,
+        {
+          currentPassword: data.currentPassword,
+          newPassword: data.newPassword
+        },
+        {
+          ...getAuthConfig(),
+          headers: {
+            ...getAuthConfig().headers,
+            'Content-Type': 'application/json'
+          }
+        }
       );
+      
+      console.log('Password change successful:', response.data);
       return response.data;
-    } catch (error) {
-      throw handleError(error);
+    } catch (error: any) {
+      console.error('Password change error:', error.response?.data || error);
+      
+      if (error.response) {
+        // Handle validation errors
+        if (error.response.data?.errors) {
+          const errorMessages = Object.values(error.response.data.errors);
+          throw new Error(errorMessages.join('\n'));
+        }
+        // Handle specific error cases
+        if (error.response.data?.message === 'No password set for this account') {
+          throw new Error('You logged in using a social account (like Google). Please set up a password first.');
+        }
+        // Handle other error messages
+        throw new Error(error.response.data?.message || 'Failed to change password');
+      }
+      throw new Error('Network error. Please check your internet connection and try again.');
     }
   },
 

@@ -1,13 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/user.controller');
-const { verifyToken, isAdmin } = require('../middleware/auth');
+const { isAuthenticated, isAdmin } = require('../middleware/auth');
 
-// All routes require authentication and admin privileges
-router.use(verifyToken, isAdmin);
+// Apply authentication middleware to all routes
+router.use(isAuthenticated);
+
+// Apply admin middleware to all routes
+router.use(isAdmin);
 
 // Get all users with pagination and filters
 router.get('/', userController.getAllUsers);
+
+// Get user statistics
+router.get('/statistics', userController.getUserStatistics);
 
 // Get single user
 router.get('/:id', userController.getUser);
@@ -19,9 +25,15 @@ router.put('/:id', userController.updateUser);
 router.delete('/:id', userController.deleteUser);
 
 // Block/Unblock user
-router.patch('/:id/toggle-block', userController.toggleUserBlock);
+router.patch('/:id/block', userController.toggleUserBlock);
 
 // Change user role
-router.patch('/:id/change-role', userController.changeUserRole);
+router.patch('/:id/role', userController.changeUserRole);
+
+// Unlock user account
+router.patch('/:id/unlock', userController.unlockUserAccount);
+
+// Reset user password
+router.patch('/:id/reset-password', userController.resetUserPassword);
 
 module.exports = router; 

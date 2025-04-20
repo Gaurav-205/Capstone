@@ -36,7 +36,7 @@ import {
   FilterList as FilterIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { userService, User } from '../../services/user.service';
+import userService, { User } from '../../services/user.service';
 
 const UserManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -56,21 +56,33 @@ const UserManagement: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem('token');
+      console.log('Current auth token:', token);
+      
+      if (!token) {
+        setSnackbar({
+          open: true,
+          message: 'Please log in to access this page',
+          severity: 'error',
+        });
+        return;
+      }
+
       console.log('Fetching users with params:', {
         page: page + 1,
-        rowsPerPage,
-        searchTerm,
-        filterRole,
-        filterStatus
+        limit: rowsPerPage,
+        search: searchTerm,
+        role: filterRole === 'all' ? undefined : filterRole,
+        status: filterStatus === 'all' ? undefined : filterStatus
       });
       
-      const response = await userService.getAllUsers(
-        page + 1,
-        rowsPerPage,
-        searchTerm,
-        filterRole === 'all' ? undefined : filterRole,
-        filterStatus === 'all' ? undefined : filterStatus
-      );
+      const response = await userService.getAllUsers({
+        page: page + 1,
+        limit: rowsPerPage,
+        search: searchTerm,
+        role: filterRole === 'all' ? undefined : filterRole,
+        status: filterStatus === 'all' ? undefined : filterStatus
+      });
       
       console.log('Fetched users:', response);
       setUsers(response.users || []);
@@ -88,16 +100,6 @@ const UserManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    console.log('Current auth token:', token);
-    if (!token) {
-      setSnackbar({
-        open: true,
-        message: 'Please log in to access this page',
-        severity: 'error',
-      });
-      return;
-    }
     fetchUsers();
   }, [page, rowsPerPage, searchTerm, filterRole, filterStatus]);
 

@@ -181,6 +181,10 @@ const Login = () => {
           setError(errorData.message || 'Authentication failed');
         }
       } 
+      else if (err.status === 403) {
+        const errorData = err.data;
+        setError(errorData.errors?.account || 'Your account has been blocked. Please contact support.');
+      }
       else {
         setError('Login failed. Please try again later.');
       }

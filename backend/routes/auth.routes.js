@@ -17,9 +17,11 @@ const { isAuthenticated } = require('../middleware/auth');
 
 // Helper function to get frontend URL based on environment
 const getFrontendURL = () => {
-  return process.env.NODE_ENV === 'production' 
-    ? 'https://kampuskart.netlify.app'
-    : process.env.FRONTEND_URL_DEV || 'http://localhost:3000';
+  if (process.env.NODE_ENV === 'production') {
+    return process.env.FRONTEND_URL_PROD || 'https://kampuskart.netlify.app';
+  }
+  // For development, first try the environment variable, then fallback to localhost
+  return process.env.FRONTEND_URL_DEV || 'http://localhost:3000';
 };
 
 // Auth routes
