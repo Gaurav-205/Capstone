@@ -38,8 +38,11 @@ app.use(cookieParser());
 // CORS configuration
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://kampuskart.netlify.app'
-];
+  'https://kampuskart.netlify.app',
+  'https://kampuskart.onrender.com',
+  process.env.FRONTEND_URL_PROD,
+  process.env.FRONTEND_URL_DEV
+].filter(Boolean); // Remove any undefined values
 
 app.use(cors({
   origin: function(origin, callback) {
@@ -49,8 +52,14 @@ app.use(cors({
       return callback(null, true);
     }
     
-    // Check if origin is allowed
-    if (allowedOrigins.includes(origin)) {
+    // Check if origin matches any allowed origin or subdomain
+    const isAllowed = allowedOrigins.some(allowedOrigin => 
+      origin === allowedOrigin || 
+      origin.endsWith('.onrender.com') || 
+      origin.endsWith('.netlify.app')
+    );
+    
+    if (isAllowed) {
       console.log('Allowed origin:', origin);
       return callback(null, true);
     }
@@ -65,18 +74,31 @@ app.use(cors({
 }));
 
 // Session configuration
-app.use(session({
+const sessionConfig = {
   secret: process.env.JWT_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.COOKIE_SECURE === 'true',
+    secure: process.env.NODE_ENV === 'production', // Only use secure cookies in production
     httpOnly: true,
-    sameSite: process.env.COOKIE_SAMESITE || 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Required for cross-site cookies in production
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   },
-  name: 'kampuskart.sid' // Custom session name for security
-}));
+  name: 'kampuskart.sid', // Custom session name for security
+  proxy: true // Trust the reverse proxy
+};
+
+// Additional production settings
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1); // Trust first proxy
+  console.log('Production session config:', {
+    secure: sessionConfig.cookie.secure,
+    sameSite: sessionConfig.cookie.sameSite,
+    proxy: sessionConfig.proxy
+  });
+}
+
+app.use(session(sessionConfig));
 
 // Initialize passport and session
 app.use(passport.initialize());
