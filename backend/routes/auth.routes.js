@@ -16,16 +16,27 @@ const {
 const { isAuthenticated } = require('../middleware/auth');
 
 // Helper function to get frontend URL based on environment
-const getFrontendURL = () => {
+const getFrontendURL = (origin) => {
   console.log('Current NODE_ENV:', process.env.NODE_ENV);
+  console.log('Request origin:', origin);
   console.log('Available URLs:', {
     prod: process.env.FRONTEND_URL_PROD,
     dev: process.env.FRONTEND_URL_DEV
   });
 
+  // If origin is provided, use it to determine the environment
+  if (origin) {
+    if (origin.includes('kampuskart.onrender.com') || origin.includes('kampuskart.netlify.app')) {
+      const prodURL = process.env.FRONTEND_URL_PROD || 'https://kampuskart.onrender.com';
+      console.log('Using production URL based on origin:', prodURL);
+      return prodURL;
+    }
+  }
+
+  // Fallback to NODE_ENV check
   if (process.env.NODE_ENV === 'production') {
     const prodURL = process.env.FRONTEND_URL_PROD || 'https://kampuskart.onrender.com';
-    console.log('Using production URL:', prodURL);
+    console.log('Using production URL based on NODE_ENV:', prodURL);
     return prodURL;
   }
   
@@ -51,8 +62,10 @@ router.post('/set-password', isAuthenticated, setPassword);
 router.get(
   '/google',
   (req, res, next) => {
-    // Store the intended destination in session
+    // Store the intended destination and origin in session
     req.session.returnTo = req.query.returnTo || '/dashboard';
+    req.session.origin = req.headers.origin || req.headers.referer;
+    console.log('Auth request origin:', req.session.origin);
     next();
   },
   passport.authenticate('google', {
@@ -66,18 +79,18 @@ router.get(
     passport.authenticate('google', (err, user, info) => {
       if (err) {
         console.error('Google auth error:', err);
-        return res.redirect(`${getFrontendURL()}/login?error=auth_failed`);
+        return res.redirect(`${getFrontendURL(req.session.origin)}/login?error=auth_failed`);
       }
 
       if (!user) {
         console.error('No user found in Google auth callback');
-        return res.redirect(`${getFrontendURL()}/login?error=no_user_found`);
+        return res.redirect(`${getFrontendURL(req.session.origin)}/login?error=no_user_found`);
       }
 
       req.logIn(user, async (loginErr) => {
         if (loginErr) {
           console.error('Login error:', loginErr);
-          return res.redirect(`${getFrontendURL()}/login?error=login_failed`);
+          return res.redirect(`${getFrontendURL(req.session.origin)}/login?error=login_failed`);
         }
 
         try {
@@ -87,14 +100,14 @@ router.get(
           });
 
           // Create redirect URL with token
-          const redirectURL = new URL(`${getFrontendURL()}/auth/callback`);
+          const redirectURL = new URL(`${getFrontendURL(req.session.origin)}/auth/callback`);
           redirectURL.searchParams.append('token', token);
           
           console.log('Google auth successful - Redirecting to:', redirectURL.toString());
           res.redirect(redirectURL.toString());
         } catch (error) {
           console.error('Token generation error:', error);
-          res.redirect(`${getFrontendURL()}/login?error=auth_failed`);
+          res.redirect(`${getFrontendURL(req.session.origin)}/login?error=auth_failed`);
         }
       });
     })(req, res, next);

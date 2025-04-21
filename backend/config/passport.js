@@ -31,7 +31,12 @@ passport.deserializeUser(async (id, done) => {
 // Helper function to get callback URL based on environment
 const getCallbackURL = () => {
   console.log('Current NODE_ENV:', process.env.NODE_ENV);
-  
+  console.log('Available callback URLs:', {
+    prod: process.env.GOOGLE_CALLBACK_URL_PROD,
+    dev: process.env.GOOGLE_CALLBACK_URL_DEV
+  });
+
+  // Always use production callback URL if NODE_ENV is production
   if (process.env.NODE_ENV === 'production') {
     const prodCallback = process.env.GOOGLE_CALLBACK_URL_PROD || 'https://kampuskart.onrender.com/api/auth/google/callback';
     console.log('Using production callback URL:', prodCallback);
