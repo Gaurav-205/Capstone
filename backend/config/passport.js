@@ -28,13 +28,28 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
+// Helper function to get callback URL based on environment
+const getCallbackURL = () => {
+  console.log('Current NODE_ENV:', process.env.NODE_ENV);
+  
+  if (process.env.NODE_ENV === 'production') {
+    const prodCallback = process.env.GOOGLE_CALLBACK_URL_PROD || 'https://kampuskart.onrender.com/api/auth/google/callback';
+    console.log('Using production callback URL:', prodCallback);
+    return prodCallback;
+  }
+  
+  const devCallback = process.env.GOOGLE_CALLBACK_URL_DEV || 'http://localhost:5000/api/auth/google/callback';
+  console.log('Using development callback URL:', devCallback);
+  return devCallback;
+};
+
 // Google OAuth Strategy
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+      callbackURL: getCallbackURL(),
       proxy: true
     },
     async (accessToken, refreshToken, profile, done) => {
