@@ -36,35 +36,32 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
 // CORS configuration
-const allowedOrigins = process.env.CORS_ORIGINS?.split(',') || [
+const allowedOrigins = [
   'http://localhost:3000',
-  'http://localhost:5173',
-  'https://kampuskart.netlify.app',
-  'https://kampuskart.onrender.com'
+  'https://kampuskart.netlify.app'
 ];
 
 app.use(cors({
   origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Allow all origins in development
-    if (process.env.NODE_ENV === 'development') {
+    if (!origin) {
+      console.log('Request from same origin');
       return callback(null, true);
     }
     
-    // In production, check against allowed origins
-    if (allowedOrigins.indexOf(origin) === -1) {
-      console.log('CORS blocked origin:', origin);
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+    // Check if origin is allowed
+    if (allowedOrigins.includes(origin)) {
+      console.log('Allowed origin:', origin);
+      return callback(null, true);
     }
-    return callback(null, true);
+    
+    // Block other origins
+    console.log('Blocked origin:', origin);
+    return callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  credentials: true,
-  maxAge: 86400 // 24 hours
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 // Session configuration

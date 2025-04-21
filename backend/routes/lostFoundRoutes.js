@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { check } = require('express-validator');
 const lostFoundController = require('../controllers/lostFoundController');
-const authMiddleware = require('../middleware/authMiddleware');
+const { protect } = require('../middleware/authMiddleware');
+const LostFoundItem = require('../models/LostFoundItem');
 
 // Validation middleware
 const itemValidation = [
@@ -20,13 +21,15 @@ const itemValidation = [
 
 // Public routes
 router.get('/statistics', lostFoundController.getStatistics);
+router.get('/search', lostFoundController.searchItems);
 router.get('/', lostFoundController.getItems);
 router.get('/:id', lostFoundController.getItemById);
 
 // Protected routes - require authentication
-router.post('/', authMiddleware, itemValidation, lostFoundController.createItem);
-router.put('/:id', authMiddleware, itemValidation, lostFoundController.updateItem);
-router.delete('/:id', authMiddleware, lostFoundController.deleteItem);
-router.patch('/:id/resolve', authMiddleware, lostFoundController.markResolved);
+router.post('/', protect, itemValidation, lostFoundController.createItem);
+router.put('/:id', protect, itemValidation, lostFoundController.updateItem);
+router.delete('/:id', protect, lostFoundController.deleteItem);
+router.patch('/:id/resolve', protect, lostFoundController.markResolved);
+router.put('/:id/claim', protect, lostFoundController.claimItem);
 
 module.exports = router; 

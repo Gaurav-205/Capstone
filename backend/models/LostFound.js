@@ -3,67 +3,84 @@ const mongoose = require('mongoose');
 const lostFoundSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true,
+    required: [true, 'Title is required'],
     trim: true
   },
   description: {
     type: String,
-    required: true
+    required: [true, 'Description is required'],
+    trim: true
   },
   category: {
     type: String,
-    required: true,
-    enum: ['Electronics', 'Books & Documents', 'Personal Accessories', 'Clothing', 'Keys', 'ID Cards', 'Others']
+    required: [true, 'Category is required'],
+    enum: ['Electronics', 'Books', 'Clothing', 'Accessories', 'Documents', 'Others']
   },
   location: {
     type: String,
-    required: true,
-    enum: ['Academic Block', 'Library', 'Cafeteria', 'Sports Complex', 'Hostel', 'Parking Area', 'Other Areas']
+    required: [true, 'Location is required'],
+    trim: true
   },
   date: {
     type: Date,
-    required: true
+    default: Date.now
   },
   status: {
     type: String,
-    required: true,
-    enum: ['lost', 'found']
+    enum: ['lost', 'found', 'claimed'],
+    required: [true, 'Status is required']
+  },
+  reportedBy: {
+    id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    name: {
+      type: String,
+      required: true
+    }
   },
   image: {
-    type: String
-  },
-  contactName: {
     type: String,
-    required: true
+    trim: true
   },
-  contactEmail: {
-    type: String,
-    required: true,
-    match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+  contactInfo: {
+    name: {
+      type: String,
+      required: [true, 'Contact name is required'],
+      trim: true
+    },
+    email: {
+      type: String,
+      required: [true, 'Contact email is required'],
+      trim: true,
+      match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email']
+    },
+    phone: {
+      type: String,
+      required: [true, 'Contact phone is required'],
+      trim: true
+    }
   },
-  contactPhone: {
-    type: String,
-    required: true,
-    match: [/^[0-9]{10}$/, 'Please enter a valid 10-digit phone number']
-  },
-  isResolved: {
-    type: Boolean,
-    default: false
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+  claimedBy: {
+    id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    name: String,
+    date: Date
   }
+}, {
+  timestamps: true
 });
 
-// Update the updatedAt timestamp before saving
-lostFoundSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
+// Add text index for search functionality
+lostFoundSchema.index({
+  title: 'text',
+  description: 'text',
+  category: 'text',
+  location: 'text'
 });
 
 module.exports = mongoose.model('LostFound', lostFoundSchema); 

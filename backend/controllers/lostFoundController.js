@@ -2,7 +2,7 @@ const { validationResult } = require('express-validator');
 const LostFoundItem = require('../models/LostFoundItem');
 
 // Get all items with filtering
-exports.getItems = async (req, res) => {
+const getItems = async (req, res) => {
   try {
     const {
       status,
@@ -66,11 +66,9 @@ exports.getItems = async (req, res) => {
 };
 
 // Get single item by ID
-exports.getItemById = async (req, res) => {
+const getItemById = async (req, res) => {
   try {
-    const id = req.params.id;
-
-    const item = await LostFoundItem.findById(id);
+    const item = await LostFoundItem.findById(req.params.id);
     if (!item) {
       return res.status(404).json({ success: false, message: 'Item not found' });
     }
@@ -86,7 +84,7 @@ exports.getItemById = async (req, res) => {
 };
 
 // Create new item
-exports.createItem = async (req, res) => {
+const createItem = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -109,8 +107,8 @@ exports.createItem = async (req, res) => {
     // Create new lost/found item
     const newItem = new LostFoundItem({
       ...req.body,
-      userId: req.user.id, // Add user ID from auth middleware
-      date: date,
+      userId: req.user.id,
+      date: date
     });
 
     // Save to database
@@ -127,24 +125,21 @@ exports.createItem = async (req, res) => {
 };
 
 // Update item
-exports.updateItem = async (req, res) => {
+const updateItem = async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const id = req.params.id;
-
-    // Find the item
-    const item = await LostFoundItem.findById(id);
+    const item = await LostFoundItem.findById(req.params.id);
     if (!item) {
       return res.status(404).json({ success: false, message: 'Item not found' });
     }
 
-    // Check if user owns the item
-    if (item.userId.toString() !== req.user.id.toString()) {
-      return res.status(403).json({ success: false, message: 'You are not authorized to update this item' });
+    // Allow admins to update any item, but regular users can only update their own items
+    if (req.user.role !== 'admin' && item.userId.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ success: false, message: 'You do not have permission to update this item' });
     }
 
     // Validate date if provided
@@ -156,9 +151,8 @@ exports.updateItem = async (req, res) => {
       req.body.date = date;
     }
 
-    // Update the item
     const updatedItem = await LostFoundItem.findByIdAndUpdate(
-      id,
+      req.params.id,
       { ...req.body, updatedAt: new Date() },
       { new: true, runValidators: true }
     );
@@ -174,23 +168,19 @@ exports.updateItem = async (req, res) => {
 };
 
 // Delete item
-exports.deleteItem = async (req, res) => {
+const deleteItem = async (req, res) => {
   try {
-    const id = req.params.id;
-
-    // Find the item
-    const item = await LostFoundItem.findById(id);
+    const item = await LostFoundItem.findById(req.params.id);
     if (!item) {
       return res.status(404).json({ success: false, message: 'Item not found' });
     }
 
-    // Check if user owns the item
-    if (item.userId.toString() !== req.user.id.toString()) {
-      return res.status(403).json({ success: false, message: 'You are not authorized to delete this item' });
+    // Allow admins to delete any item, but regular users can only delete their own items
+    if (req.user.role !== 'admin' && item.userId.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ success: false, message: 'You do not have permission to delete this item' });
     }
 
-    // Delete the item
-    await LostFoundItem.findByIdAndDelete(id);
+    await LostFoundItem.findByIdAndDelete(req.params.id);
     
     res.json({
       success: true,
@@ -202,26 +192,93 @@ exports.deleteItem = async (req, res) => {
   }
 };
 
-// Mark item as resolved
-exports.markResolved = async (req, res) => {
+// Get statistics
+const getStatistics = async (req, res) => {
   try {
-    const id = req.params.id;
+    const [
+      totalLost,
+      totalFound,
+      totalResolved,
+      categoryStats,
+      recentItems
+    ] = await Promise.all([
+      LostFoundItem.countDocuments({ status: 'lost' }),
+      LostFoundItem.countDocuments({ status: 'found' }),
+      LostFoundItem.countDocuments({ isResolved: true }),
+      LostFoundItem.aggregate([
+        { $group: { _id: '$category', count: { $sum: 1 } } }
+      ]),
+      LostFoundItem.find()
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('title status category createdAt')
+    ]);
 
-    // Find the item
-    const item = await LostFoundItem.findById(id);
+    res.json({
+      success: true,
+      data: {
+        totalLost,
+        totalFound,
+        totalResolved,
+        categoryStats,
+        recentItems
+      }
+    });
+  } catch (error) {
+    console.error('Error in getStatistics:', error);
+    res.status(500).json({ success: false, message: 'Server error while fetching statistics' });
+  }
+};
+
+// Search items
+const searchItems = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({ success: false, message: 'Search query is required' });
+    }
+
+    const items = await LostFoundItem.find(
+      {
+        $or: [
+          { title: { $regex: q, $options: 'i' } },
+          { description: { $regex: q, $options: 'i' } },
+          { category: { $regex: q, $options: 'i' } },
+          { location: { $regex: q, $options: 'i' } }
+        ]
+      }
+    ).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: items
+    });
+  } catch (error) {
+    console.error('Error in searchItems:', error);
+    res.status(500).json({ success: false, message: 'Server error while searching items' });
+  }
+};
+
+// Mark item as resolved
+const markResolved = async (req, res) => {
+  try {
+    const item = await LostFoundItem.findById(req.params.id);
     if (!item) {
       return res.status(404).json({ success: false, message: 'Item not found' });
     }
 
-    // Check if user owns the item
-    if (item.userId.toString() !== req.user.id.toString()) {
-      return res.status(403).json({ success: false, message: 'You are not authorized to mark this item as resolved' });
+    // Allow admins to mark any item as resolved, but regular users can only mark their own items
+    if (req.user.role !== 'admin' && item.userId.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ success: false, message: 'You do not have permission to mark this item as resolved' });
     }
 
-    // Update the item
     const updatedItem = await LostFoundItem.findByIdAndUpdate(
-      id,
-      { isResolved: true, updatedAt: new Date() },
+      req.params.id,
+      { 
+        isResolved: true,
+        updatedAt: new Date()
+      },
       { new: true }
     );
     
@@ -235,31 +292,50 @@ exports.markResolved = async (req, res) => {
   }
 };
 
-// Get statistics
-exports.getStatistics = async (req, res) => {
+// Claim item
+const claimItem = async (req, res) => {
   try {
-    const [activeLostItems, activeFoundItems, resolvedItems, categoryDistribution] = await Promise.all([
-      LostFoundItem.countDocuments({ status: 'lost', isResolved: false }),
-      LostFoundItem.countDocuments({ status: 'found', isResolved: false }),
-      LostFoundItem.countDocuments({ isResolved: true }),
-      LostFoundItem.aggregate([
-        { $group: { _id: '$category', count: { $sum: 1 } } }
-      ])
-    ]);
+    const item = await LostFoundItem.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Item not found' });
+    }
 
-    const stats = {
-      activeLostItems,
-      activeFoundItems,
-      resolvedItems,
-      categoryDistribution
-    };
+    if (item.isResolved) {
+      return res.status(400).json({ success: false, message: 'This item has already been resolved' });
+    }
 
+    const updatedItem = await LostFoundItem.findByIdAndUpdate(
+      req.params.id,
+      {
+        isResolved: true,
+        claimedBy: {
+          userId: req.user.id,
+          name: req.user.name,
+          date: new Date()
+        },
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+    
     res.json({
       success: true,
-      data: stats
+      data: updatedItem
     });
   } catch (error) {
-    console.error('Error in getStatistics:', error);
-    res.status(500).json({ success: false, message: 'Server error while fetching statistics' });
+    console.error('Error in claimItem:', error);
+    res.status(500).json({ success: false, message: 'Server error while claiming item' });
   }
+};
+
+module.exports = {
+  getItems,
+  getItemById,
+  createItem,
+  updateItem,
+  deleteItem,
+  getStatistics,
+  searchItems,
+  markResolved,
+  claimItem
 }; 
