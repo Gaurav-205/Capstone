@@ -24,6 +24,8 @@ import NotFound from './pages/NotFound';
 import Support from './pages/Support';
 import EventDetails from './pages/EventDetails';
 import ResetPassword from './pages/ResetPassword';
+import HostelManagement from './pages/admin/HostelManagement';
+import LostFoundManagement from './pages/admin/LostFoundManagement';
 
 const App: React.FC = () => {
   return (
@@ -42,8 +44,8 @@ const App: React.FC = () => {
             <Route element={<AdminRoute />}>
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<UserManagement />} />
-              <Route path="/admin/hostels" element={<div>Hostels Management</div>} />
-              <Route path="/admin/lost-found" element={<div>Lost & Found Management</div>} />
+              <Route path="/admin/hostels" element={<HostelManagement />} />
+              <Route path="/admin/lost-found" element={<LostFoundManagement />} />
               <Route path="/admin/feedback" element={<FeedbackManagement />} />
               <Route path="/admin/events" element={<EventManagement />} />
               <Route path="/admin/news" element={<NewsManagement />} />
